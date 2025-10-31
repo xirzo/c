@@ -28,7 +28,7 @@ exe = executable(
 )
 
 unity_src = ['./external/unity/unity.c']
-lexer_test_include = include_directories('./external/unity', './lib/include/')
+test_include = include_directories('./external/unity', './lib/include/')
 
 lexer_test_src = [
   './tests/lexer_tests.c',
@@ -39,9 +39,27 @@ lexer_test_src = [
 lexer_test = executable(
   'test_lexer',
   sources: lexer_test_src + unity_src,
-  include_directories: lexer_test_include,
+  include_directories: test_include,
   dependencies: dependencies,
   c_args: ['-DUNITY_OUTPUT_COLOR']
 )
 
 test('lexer tests', lexer_test)
+
+parser_test_src = [
+  './tests/parser_tests.c',
+  './lib/src/lexer.c', 
+  './lib/src/parser.c', 
+  './lib/src/stb_ds.c'
+]
+
+parser_test = executable(
+  'test_parser',
+  sources: parser_test_src + unity_src,
+  include_directories: test_include,
+  dependencies: dependencies,
+  c_args: ['-DUNITY_OUTPUT_COLOR']
+)
+
+
+test('parser tests', parser_test)
