@@ -50,7 +50,6 @@ c_lexer *c_lexer_create(const char *source) {
 
     lexer->source = source;
     lexer->source_length = strlen(source);
-    lexer->len = strlen(source);
     lexer->current_char = source[0];
     lexer->current_position = 0;
     lexer->read_position = 1;

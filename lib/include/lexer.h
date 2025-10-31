@@ -31,7 +31,6 @@ typedef struct {
 typedef struct {
     const char *source;
     size_t source_length;
-    size_t len;
     char current_char;
     size_t current_position;
     size_t read_position;
