@@ -1,6 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <stdio.h>
+
 #define EXIT_WITH_ERROR(error)  \
     do {                        \
         fprintf(stderr, error); \

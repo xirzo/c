@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "parser.h"
 #include "stb_ds.h"
 
 int main(void) {
@@ -8,12 +9,14 @@ int main(void) {
         "}";
 
     c_lexer *lexer = c_lexer_create(source);
-
     c_token *tokens = c_lexer_lex(lexer);
-
-    for (int i = 0; i < arrlen(tokens); i++) {}
-
     c_lexer_free(lexer);
-    c_lexer_free_tokens(tokens);
+
+    c_parser *parser = c_parser_create(tokens);
+
+    c_ast_program *program = c_parser_parse(parser);
+
+    c_parser_free(parser);
+    c_parser_free_program(program);
     return 0;
 }

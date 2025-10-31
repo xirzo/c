@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-typedef enum c_token_type {
+typedef enum {
     C_IDENTIFIER,
 
     C_INTEGER_LITERAL,
@@ -19,7 +19,7 @@ typedef enum c_token_type {
     C_EOF,
 } c_token_type;
 
-typedef struct c_token {
+typedef struct {
     c_token_type type;
 
     // NOTE: removed union, because otherwise
@@ -28,7 +28,7 @@ typedef struct c_token {
     char symbol;
 } c_token;
 
-typedef struct c_lexer {
+typedef struct {
     const char *source;
     size_t source_length;
     size_t len;
