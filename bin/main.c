@@ -1,12 +1,19 @@
-#include <stdio.h>
+#include "lexer.h"
+#include "stb_ds.h"
 
-#define PROJECT_NAME "c"
+int main(void) {
+    const char source[1024] =
+        "int main() {"
+        "   return 0;"
+        "}";
 
-int main(int argc, char **argv) {
-    if (argc != 1) {
-        printf("%s takes no arguments.\n", argv[0]);
-        return 1;
-    }
-    printf("This is project %s.\n", PROJECT_NAME);
+    c_lexer *lexer = c_lexer_create(source);
+
+    c_token *tokens = c_lexer_lex(lexer);
+
+    for (int i = 0; i < arrlen(tokens); i++) {}
+
+    c_lexer_free(lexer);
+    c_lexer_free_tokens(tokens);
     return 0;
 }
