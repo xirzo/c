@@ -199,6 +199,7 @@ c_token *c_lexer_lex(c_lexer *lexer) {
 
 void c_lexer_free(c_lexer *lexer) {
     free(lexer);
+    lexer = NULL;
 }
 
 void c_lexer_free_tokens(c_token *tokens) {
@@ -214,4 +215,5 @@ void c_lexer_free_tokens(c_token *tokens) {
     }
 
     arrfree(tokens);
+    tokens = NULL;
 }

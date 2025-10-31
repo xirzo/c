@@ -26,3 +26,22 @@ exe = executable(
   include_directories : include_directories('./lib/include/'),
   install : true,
 )
+
+unity_src = ['./external/unity/unity.c']
+lexer_test_include = include_directories('./external/unity', './lib/include/')
+
+lexer_test_src = [
+  './tests/lexer_tests.c',
+  './lib/src/lexer.c', 
+  './lib/src/stb_ds.c'
+]
+
+lexer_test = executable(
+  'test_lexer',
+  sources: lexer_test_src + unity_src,
+  include_directories: lexer_test_include,
+  dependencies: dependencies,
+  c_args: ['-DUNITY_OUTPUT_COLOR']
+)
+
+test('lexer tests', lexer_test)
