@@ -115,12 +115,10 @@ c_token c_lexer_lex_identifier_or_keyword(c_lexer *lexer) {
         allocate_substring(lexer->source, start_position, end_position);
 
     if (strcmp("int", word) == 0) {
-        free(word);
-        return (c_token){.type = C_INTEGER, .string = NULL};
+        return (c_token){.type = C_INTEGER, .string = word};
     }
     if (strcmp("return", word) == 0) {
-        free(word);
-        return (c_token){.type = C_RETURN, .string = NULL};
+        return (c_token){.type = C_RETURN, .string = word};
     }
 
     return (c_token){.type = C_IDENTIFIER, .string = word};
