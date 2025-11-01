@@ -1,11 +1,14 @@
+#include <stdio.h>
+#include "code_generator.h"
 #include "lexer.h"
 #include "parser.h"
+#include "utils.h"
 #include "stb_ds.h"
 
 int main(void) {
     const char source[1024] =
         "int main() {"
-        "   return 0;"
+        "   return 69;"
         "}";
 
     c_lexer *lexer = c_lexer_create(source);
@@ -16,7 +19,26 @@ int main(void) {
 
     c_ast_program *program = c_parser_parse(parser);
 
-    c_parser_free(parser);
+    FILE *file = fopen("c.asm", "w");
+
+    if (!file) {
+        c_parser_free(parser);
+        c_parser_free_program(program);
+        EXIT_WITH_ERROR("Failed to open file for writing\n");
+    }
+
+    char **asm_lines = c_code_gen_emit(program);
+
+    for (int i = 0; i < arrlen(asm_lines); i++) {
+        fprintf(file, "%s\n", asm_lines[i]);
+    }
+
+    fclose(file);
     c_parser_free_program(program);
+    c_parser_free(parser);
+    for (int i = 0; i < arrlen(asm_lines); i++) {
+        free(asm_lines[i]);
+    }
+    arrfree(asm_lines);
     return 0;
 }

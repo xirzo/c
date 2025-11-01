@@ -17,7 +17,7 @@ else
 endif
 
 dependencies = []
-srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/stb_ds.c', './lib/src/parser.c']
+srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/stb_ds.c', './lib/src/parser.c', './lib/src/code_generator.c']
 
 exe = executable(
   'c',
