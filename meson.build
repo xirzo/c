@@ -19,8 +19,7 @@ endif
 dependencies = []
 srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/stb_ds.c', './lib/src/parser.c', './lib/src/code_generator.c']
 
-exe = executable(
-  'c',
+exe = executable( 'c',
   sources : srcs,
   dependencies : dependencies,
   include_directories : include_directories('./lib/include/'),
@@ -61,5 +60,22 @@ parser_test = executable(
   c_args: ['-DUNITY_OUTPUT_COLOR']
 )
 
-
 test('parser tests', parser_test)
+
+code_gen_test_src = [
+  './tests/code_gen_tests.c',
+  './lib/src/lexer.c', 
+  './lib/src/parser.c', 
+  './lib/src/code_generator.c', 
+  './lib/src/stb_ds.c'
+]
+
+code_gen_test = executable(
+  'test_code_generator',
+  sources: code_gen_test_src + unity_src,
+  include_directories: test_include,
+  dependencies: dependencies,
+  c_args: ['-DUNITY_OUTPUT_COLOR']
+)
+
+test('code generator tests', code_gen_test)
