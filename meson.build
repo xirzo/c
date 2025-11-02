@@ -18,13 +18,24 @@ else
 endif
 
 dependencies = []
-srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/stb_ds.c', './lib/src/parser.c', './lib/src/code_generator.c', './lib/src/str.c']
+  srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/parser.c', './lib/src/code_generator.c', './lib/src/str.c']
+
+stb_ds = static_library('stb_ds',
+  './lib/src/stb_ds.c',
+  include_directories : include_directories('./lib/include/'),
+  c_args: ['-Wno-unused-parameter',
+    '-Wno-deprecated-declarations',
+    '-Wno-unused-result',
+    '-Wno-implicit-fallthrough',
+    '-Wno-unused-function']
+)
 
 exe = executable( 'c',
   sources : srcs,
   dependencies : dependencies,
   include_directories : include_directories('./lib/include/'),
   c_args: [my_c_args],
+  link_with: stb_ds,
   install : true,
 )
 
