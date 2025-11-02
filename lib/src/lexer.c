@@ -7,6 +7,16 @@
 #include "stb_ds.h"
 #include "utils.h"
 
+#ifdef ENABLE_LOGGING
+#if ENABLE_LOGGING == 1
+#warning "LOGGING IS ENABLED"
+#else
+#warning "LOGGING IS DISABLED"
+#endif
+#else
+#warning "ENABLE_LOGGING NOT DEFINED"
+#endif
+
 void c_lexer_advance(c_lexer *lexer) {
     if (lexer->current_position == lexer->source_length) {
         EXIT_WITH_ERROR("Already reached the end of the source\n");

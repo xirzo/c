@@ -6,13 +6,14 @@ project(
   default_options : ['warning_level=3', 'c_std=c11', 'b_sanitize=address,undefined'],
 )
 
+my_c_args = ['-DUNITY_OUTPUT_COLOR']
 build_type = get_option('buildtype')
 
 if build_type == 'debug'
-  add_project_arguments('-DENABLE_LOGGING=1', language: 'c')
+  my_c_args += ['-DENABLE_LOGGING=1']
   message('Debug logging enabled (debug build)')
 else
-  add_project_arguments('-DENABLE_LOGGING=0', language: 'c')
+  my_c_args += ['-DENABLE_LOGGING=0']
   message('Debug logging disabled (release build)')
 endif
 
@@ -23,6 +24,7 @@ exe = executable( 'c',
   sources : srcs,
   dependencies : dependencies,
   include_directories : include_directories('./lib/include/'),
+  c_args: [my_c_args],
   install : true,
 )
 
@@ -40,7 +42,7 @@ lexer_test = executable(
   sources: lexer_test_src + unity_src,
   include_directories: test_include,
   dependencies: dependencies,
-  c_args: ['-DUNITY_OUTPUT_COLOR']
+  c_args: [my_c_args]
 )
 
 test('lexer tests', lexer_test)
@@ -57,7 +59,7 @@ parser_test = executable(
   sources: parser_test_src + unity_src,
   include_directories: test_include,
   dependencies: dependencies,
-  c_args: ['-DUNITY_OUTPUT_COLOR']
+  c_args: [my_c_args]
 )
 
 test('parser tests', parser_test)
@@ -75,7 +77,7 @@ code_gen_test = executable(
   sources: code_gen_test_src + unity_src,
   include_directories: test_include,
   dependencies: dependencies,
-  c_args: ['-DUNITY_OUTPUT_COLOR']
+  c_args: [my_c_args]
 )
 
 test('code generator tests', code_gen_test)
