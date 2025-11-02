@@ -18,7 +18,7 @@ else
 endif
 
 dependencies = []
-srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/stb_ds.c', './lib/src/parser.c', './lib/src/code_generator.c']
+srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/stb_ds.c', './lib/src/parser.c', './lib/src/code_generator.c', './lib/src/str.c']
 
 exe = executable( 'c',
   sources : srcs,
@@ -34,7 +34,8 @@ test_include = include_directories('./external/unity', './lib/include/')
 lexer_test_src = [
   './tests/lexer_tests.c',
   './lib/src/lexer.c', 
-  './lib/src/stb_ds.c'
+  './lib/src/stb_ds.c',
+  './lib/src/str.c'
 ]
 
 lexer_test = executable(
@@ -51,7 +52,8 @@ parser_test_src = [
   './tests/parser_tests.c',
   './lib/src/lexer.c', 
   './lib/src/parser.c', 
-  './lib/src/stb_ds.c'
+  './lib/src/stb_ds.c',
+  './lib/src/str.c'
 ]
 
 parser_test = executable(
@@ -69,7 +71,8 @@ code_gen_test_src = [
   './lib/src/lexer.c', 
   './lib/src/parser.c', 
   './lib/src/code_generator.c', 
-  './lib/src/stb_ds.c'
+  './lib/src/stb_ds.c',
+  './lib/src/str.c'
 ]
 
 code_gen_test = executable(

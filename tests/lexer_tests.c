@@ -33,7 +33,6 @@ void test_default_main(void) {
     TEST_ASSERT_EQUAL(C_IDENTIFIER, tokens[1].type);
     TEST_ASSERT_EQUAL_STRING("main", tokens[1].string);
     TEST_ASSERT_EQUAL(C_LPAREN, tokens[2].type);
-    TEST_ASSERT_EQUAL(C_LPAREN, tokens[2].type);
     TEST_ASSERT_EQUAL(C_RPAREN, tokens[3].type);
     TEST_ASSERT_EQUAL(C_LBRACE, tokens[4].type);
     TEST_ASSERT_EQUAL(C_RETURN, tokens[5].type);

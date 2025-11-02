@@ -7,8 +7,12 @@
 
 int main(void) {
     const char source[1024] =
+        "int test() {"
+        "   return 10;"
+        "}"
+        ""
         "int main() {"
-        "   return 69;"
+        "   return test();"
         "}";
 
     c_lexer *lexer = c_lexer_create(source);
@@ -22,8 +26,8 @@ int main(void) {
     FILE *file = fopen("c.asm", "w");
 
     if (!file) {
-        c_parser_free(parser);
         c_parser_free_program(program);
+        c_parser_free(parser);
         EXIT_WITH_ERROR("Failed to open file for writing\n");
     }
 
@@ -34,11 +38,15 @@ int main(void) {
     }
 
     fclose(file);
-    c_parser_free_program(program);
-    c_parser_free(parser);
+
     for (int i = 0; i < arrlen(asm_lines); i++) {
         free(asm_lines[i]);
     }
     arrfree(asm_lines);
+
+    c_parser_free_program(program);
+
+    c_parser_free(parser);
+
     return 0;
 }

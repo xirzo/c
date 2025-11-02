@@ -2,6 +2,7 @@
 #include "parser.h"
 #include "stb_ds.h"
 #include "utils.h"
+#include "str.h"
 
 // section .text
 // global _start
@@ -33,17 +34,6 @@
         arrput(lines, new_lines[i]);              \
     }
 
-char *strdup(const char *str) {
-    size_t len = strlen(str) + 1;
-    char *copy = malloc(len);
-
-    if (copy) {
-        strcpy(copy, str);
-    }
-
-    return copy;
-}
-
 char **c_code_gen_emit(c_ast_program *program) {
     char **lines = NULL;
 
@@ -51,20 +41,23 @@ char **c_code_gen_emit(c_ast_program *program) {
     arrput(lines, strdup(""));
     arrput(lines, strdup("section .text"));
     arrput(lines, strdup("_start:"));
-    arrput(lines, strdup("call main"));
+    arrput(lines, strdup("    call main"));
     arrput(lines, strdup(""));
-    arrput(lines, strdup("mov edi, eax"));
-    arrput(lines, strdup("mov eax, 60"));
-    arrput(lines, strdup("syscall"));
+    arrput(lines, strdup("    mov edi, eax"));
+    arrput(lines, strdup("    mov eax, 60"));
+    arrput(lines, strdup("    syscall"));
+    arrput(lines, strdup(""));
 
-    char **function_lines =
-        c_code_gen_emit_function_declaration(program->function_declaration);
+    for (int i = 0; i < arrlen(program->function_declarations); i++) {
+        char **function_lines = c_code_gen_emit_function_declaration(
+            program->function_declarations[i]);
 
-    for (int i = 0; i < arrlen(function_lines); i++) {
-        arrput(lines, function_lines[i]);
+        for (int i = 0; i < arrlen(function_lines); i++) {
+            arrput(lines, function_lines[i]);
+        }
+
+        arrfree(function_lines);
     }
-
-    arrfree(function_lines);
 
     return lines;
 }
@@ -79,6 +72,19 @@ char **c_code_gen_emit_constant(c_ast_constant *constant) {
     return lines;
 }
 
+char **c_code_gen_emit_function_call(c_ast_function_call *function_call) {
+    char **lines = NULL;
+
+    char *function_label = malloc(strlen(function_call->function_name) + 10);
+    snprintf(function_label,
+             strlen(function_call->function_name) + 10,
+             "    call %s",
+             function_call->function_name);
+    arrput(lines, function_label);
+
+    return lines;
+}
+
 char **c_code_gen_emit_expression(c_ast_expression *expression) {
     char **lines = NULL;
 
@@ -88,6 +94,13 @@ char **c_code_gen_emit_expression(c_ast_expression *expression) {
                 c_code_gen_emit_constant(expression->constant);
             ADD_TO_LINES(constant_lines);
             arrfree(constant_lines);
+            break;
+        }
+        case C_FUNCTION_CALL: {
+            char **function_call_lines =
+                c_code_gen_emit_function_call(expression->function_call);
+            ADD_TO_LINES(function_call_lines);
+            arrfree(function_call_lines);
             break;
         }
         default:
@@ -178,6 +191,7 @@ char **c_code_gen_emit_function_declaration(
     arrput(lines, strdup(""));
     arrput(lines, strdup("    pop rbp"));
     arrput(lines, strdup("    ret"));
+    arrput(lines, strdup(""));
 
     return lines;
 }

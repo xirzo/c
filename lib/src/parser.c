@@ -1,10 +1,11 @@
 #include "parser.h"
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "lexer.h"
 #include "utils.h"
 #include "stb_ds.h"
+#include "str.h"
 
 c_parser *c_parser_create(c_token *tokens) {
     if (arrlen(tokens) == 0) {
@@ -22,7 +23,7 @@ c_parser *c_parser_create(c_token *tokens) {
 }
 
 void c_parser_advance(c_parser *parser) {
-    if (parser->current_position == arrlenu(parser->tokens)) {
+    if (parser->current_position >= arrlenu(parser->tokens)) {
         EXIT_WITH_ERROR("Already reached the end of the source\n");
     }
 
@@ -32,7 +33,7 @@ void c_parser_advance(c_parser *parser) {
 }
 
 c_token c_parser_peek(c_parser *parser) {
-    if (parser->current_position == arrlenu(parser->tokens)) {
+    if (parser->current_position >= arrlenu(parser->tokens)) {
         EXIT_WITH_ERROR("Trying to read after the end of tokens");
     }
 
@@ -50,18 +51,40 @@ c_ast_constant *c_parser_parse_constant(c_parser *parser) {
     return constant;
 }
 
+c_ast_function_call *c_parser_parse_function_call(c_parser *parser) {
+    c_ast_function_call *function_call = malloc(sizeof(c_ast_function_call));
+    function_call->function_name = strdup(parser->current_token.string);
+
+    LOG_DEBUG("Parsing function call\n");
+    c_parser_advance(parser);
+    assert(parser->current_token.type == C_LPAREN);
+
+    c_parser_advance(parser);
+    assert(parser->current_token.type == C_RPAREN);
+
+    c_parser_advance(parser);
+
+    return function_call;
+}
+
 c_ast_expression *c_parser_parse_expression(c_parser *parser) {
     c_ast_expression *expression = malloc(sizeof(c_ast_expression));
 
-    expression->constant = NULL;
+    LOG_DEBUG("Parsing expression\n");
 
     switch (parser->current_token.type) {
-        // TODO: currently only integer
         case C_INTEGER_LITERAL:
-            expression->constant = c_parser_parse_constant(parser);
             expression->type = C_CONSTANT;
+            expression->constant = c_parser_parse_constant(parser);
             break;
+
+        case C_IDENTIFIER:
+            expression->type = C_FUNCTION_CALL;
+            expression->function_call = c_parser_parse_function_call(parser);
+            break;
+
         default:
+            free(expression);
             EXIT_WITH_ERROR_ARGS(
                 "Received improper token for parse expression: %d\n",
                 parser->current_token.type);
@@ -73,10 +96,15 @@ c_ast_expression *c_parser_parse_expression(c_parser *parser) {
 c_ast_return *c_parser_parse_return(c_parser *parser) {
     c_ast_return *return_statement = malloc(sizeof(c_ast_return));
 
+    LOG_DEBUG("Parsing return\n");
+
     assert(parser->current_token.type == C_RETURN);
     c_parser_advance(parser);
 
     return_statement->value = c_parser_parse_expression(parser);
+
+    assert(parser->current_token.type == C_SEMICOLON);
+    c_parser_advance(parser);
 
     return return_statement;
 }
@@ -84,22 +112,23 @@ c_ast_return *c_parser_parse_return(c_parser *parser) {
 c_ast_block *c_parser_parse_block(c_parser *parser) {
     c_ast_block *block = malloc(sizeof(c_ast_block));
 
+    LOG_DEBUG("Parsing block\n");
+
     block->statements = NULL;
 
     assert(parser->current_token.type == C_LBRACE);
     c_parser_advance(parser);
 
-    // TODO: for now parse only return (later use parse_statement)
     c_ast_return *return_statement = c_parser_parse_return(parser);
 
     c_ast_statement *statement = malloc(sizeof(c_ast_statement));
-
     statement->type = C_STATEMENT_RETURN;
     statement->return_statement = return_statement;
 
     arrput(block->statements, statement);
 
-    assert(c_parser_peek(parser).type == C_RBRACE);
+    assert(parser->current_token.type == C_RBRACE);
+
     c_parser_advance(parser);
 
     return block;
@@ -108,6 +137,7 @@ c_ast_block *c_parser_parse_block(c_parser *parser) {
 c_ast_function_declaration *c_parser_parse_function_declaration(
     c_parser *parser) {
     // NOTE: using asserts is not great :)
+    LOG_DEBUG("Parsing function declaration\n");
     c_ast_function_declaration *function_declaration =
         malloc(sizeof(c_ast_function_declaration));
 
@@ -116,9 +146,7 @@ c_ast_function_declaration *c_parser_parse_function_declaration(
     c_parser_advance(parser);
     assert(parser->current_token.type == C_IDENTIFIER);
 
-    long length = strlen(parser->current_token.string);
-    function_declaration->function_name = malloc(sizeof(char) * (length + 1));
-    strcpy(function_declaration->function_name, parser->current_token.string);
+    function_declaration->function_name = strdup(parser->current_token.string);
 
     c_parser_advance(parser);
     assert(parser->current_token.type == C_LPAREN);
@@ -136,20 +164,23 @@ c_ast_function_declaration *c_parser_parse_function_declaration(
 c_ast_program *c_parser_parse(c_parser *parser) {
     c_ast_program *program = malloc(sizeof(c_ast_program));
 
-    program->function_declaration = NULL;
+    program->function_declarations = NULL;
+    size_t tokens_len = arrlen(parser->tokens);
 
-    switch (parser->current_token.type) {
-        case C_INTEGER:
-            // NOTE: temporary main function parse
-            program->function_declaration =
-                c_parser_parse_function_declaration(parser);
-            break;
-
-        case C_EOF:
-            break;
-        default:
-            EXIT_WITH_ERROR_ARGS("Received improper token for parse: %d\n",
-                                 parser->current_token.type);
+    while (parser->current_token.type != C_EOF
+           && parser->current_position < tokens_len) {
+        switch (parser->current_token.type) {
+            case C_INTEGER:
+                arrput(program->function_declarations,
+                       c_parser_parse_function_declaration(parser));
+                continue;
+            case C_EOF:
+                break;
+            default:
+                c_parser_free_program(program);
+                EXIT_WITH_ERROR_ARGS("Received improper token for parse: %d\n",
+                                     parser->current_token.type);
+        }
     }
 
     return program;
@@ -172,6 +203,10 @@ void c_ast_free_expression(c_ast_expression *expression) {
     switch (expression->type) {
         case C_CONSTANT:
             free(expression->constant);
+            break;
+        case C_FUNCTION_CALL:
+            free(expression->function_call->function_name);
+            free(expression->function_call);
             break;
         default:
             EXIT_WITH_ERROR("Got unknown expression to free\n");
@@ -239,8 +274,13 @@ void c_parser_free_program(c_ast_program *program) {
         return;
     }
 
-    if (program->function_declaration) {
-        c_ast_free_function_declaration(program->function_declaration);
+    if (program->function_declarations) {
+        for (int i = 0; i < arrlen(program->function_declarations); i++) {
+            c_ast_free_function_declaration(program->function_declarations[i]);
+        }
+
+        arrfree(program->function_declarations);
     }
+
     free(program);
 }

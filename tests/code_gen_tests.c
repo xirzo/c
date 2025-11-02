@@ -43,18 +43,19 @@ void test_code_gen_main_function(void) {
         "\n"
         "section .text\n"
         "_start:\n"
-        "call main\n"
+        "    call main\n"
         "\n"
-        "mov edi, eax\n"
-        "mov eax, 60\n"
-        "syscall\n"
+        "    mov edi, eax\n"
+        "    mov eax, 60\n"
+        "    syscall\n"
+        "\n"
         "main:\n"
         "    push rbp\n"
         "    mov rbp, rsp\n"
         "    mov eax, 69\n"
         "\n"
         "    pop rbp\n"
-        "    ret";
+        "    ret\n";
 
     TEST_ASSERT_EQUAL_STRING(expected, result);
 }

@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 typedef enum {
-    C_IDENTIFIER,
+    C_IDENTIFIER = 0,
 
     C_INTEGER_LITERAL,
 

@@ -18,5 +18,6 @@ char **c_code_gen_emit_statement(c_ast_statement *statement);
 char **c_code_gen_emit_block(c_ast_block *block);
 char **c_code_gen_emit_function_declaration(
     c_ast_function_declaration *function_declaration);
+char **c_code_gen_emit_function_call(c_ast_function_call *function_call);
 
 #endif  // !CODE_GENERATOR
