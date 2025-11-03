@@ -11,6 +11,7 @@ typedef enum {
     // into different types of literals
     C_CONSTANT,
     C_FUNCTION_CALL,
+    C_VARIABLE,
 } c_ast_expression_type;
 
 typedef struct {
@@ -21,6 +22,10 @@ typedef struct {
 typedef struct {
     char *function_name;
 } c_ast_function_call;
+typedef struct {
+    // NOTE: for now only int
+    char *name;
+} c_ast_variable;
 
 typedef struct c_ast_expression {
     c_ast_expression_type type;
@@ -28,6 +33,7 @@ typedef struct c_ast_expression {
     union {
         c_ast_constant *constant;
         c_ast_function_call *function_call;
+        c_ast_variable *variable;
     };
 } c_ast_expression;
 
@@ -100,6 +106,7 @@ c_ast_return *c_parser_parse_return(c_parser *parser);
 c_ast_block *c_parser_parse_block(c_parser *parser);
 c_ast_function_declaration *c_parser_parse_function_declaration(
     c_parser *parser);
+c_ast_variable *c_parser_parse_variable(c_parser *parser);
 
 void c_ast_free_expression(c_ast_expression *expression);
 void c_ast_free_statement(c_ast_statement *statement);
@@ -107,5 +114,6 @@ void c_ast_free_block(c_ast_block *block);
 void c_ast_free_return(c_ast_return *ret);
 void c_ast_free_variable_assignment(c_ast_variable_assignment *assignment);
 void c_ast_free_function_declaration(c_ast_function_declaration *declaration);
+void c_ast_free_variable(c_ast_variable *variable);
 
 #endif  // !PARSER_H

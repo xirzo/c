@@ -17,7 +17,7 @@ int main(void) {
         ""
         "int main() {"
         "   int lol = 8;"
-        "   return test();"
+        "   return lol;"
         "}";
 
     c_lexer *lexer = c_lexer_create(source);

@@ -1,5 +1,6 @@
 #include "parser.h"
 #include <assert.h>
+#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "lexer.h"
@@ -116,6 +117,7 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
 
 c_ast_variable_assignment *c_parser_parse_variable_assignment(
     c_parser *parser) {
+    LOG_DEBUG("Parsing variable assignment\n");
     c_ast_variable_assignment *assignment =
         malloc(sizeof(c_ast_variable_assignment));
 
@@ -143,15 +145,25 @@ c_ast_expression *c_parser_parse_expression(c_parser *parser) {
     LOG_DEBUG("Parsing expression\n");
 
     switch (parser->current_token.type) {
-        case C_INTEGER_LITERAL:
+        case C_INTEGER_LITERAL: {
             expression->type = C_CONSTANT;
             expression->constant = c_parser_parse_constant(parser);
             break;
+        }
 
-        case C_IDENTIFIER:
-            expression->type = C_FUNCTION_CALL;
-            expression->function_call = c_parser_parse_function_call(parser);
+        // TODO: segregte function call from variables
+        case C_IDENTIFIER: {
+            if (c_parser_peek(parser).type == C_LBRACE) {
+                expression->type = C_FUNCTION_CALL;
+                expression->function_call =
+                    c_parser_parse_function_call(parser);
+                break;
+            }
+
+            expression->type = C_VARIABLE;
+            expression->variable = c_parser_parse_variable(parser);
             break;
+        }
 
         default:
             free(expression);
@@ -161,6 +173,19 @@ c_ast_expression *c_parser_parse_expression(c_parser *parser) {
     }
 
     return expression;
+}
+
+c_ast_variable *c_parser_parse_variable(c_parser *parser) {
+    c_ast_variable *variable = malloc(sizeof(c_ast_variable));
+
+    LOG_DEBUG("Parsing variable\n");
+
+    assert(parser->current_token.type == C_IDENTIFIER);
+    variable->name = strdup(parser->current_token.string);
+
+    c_parser_advance(parser);
+
+    return variable;
 }
 
 c_ast_return *c_parser_parse_return(c_parser *parser) {
@@ -274,6 +299,9 @@ void c_ast_free_expression(c_ast_expression *expression) {
             free(expression->function_call->function_name);
             free(expression->function_call);
             break;
+        case C_VARIABLE:
+            c_ast_free_variable(expression->variable);
+            break;
         default:
             EXIT_WITH_ERROR("Got unknown expression to free: %d\n",
                             expression->type);
@@ -377,4 +405,13 @@ void c_parser_free_program(c_ast_program *program) {
     }
 
     free(program);
+}
+
+void c_ast_free_variable(c_ast_variable *variable) {
+    if (!variable) {
+        return;
+    }
+
+    free(variable->name);
+    free(variable);
 }
