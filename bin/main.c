@@ -6,13 +6,17 @@
 #include "stb_ds.h"
 
 int main(void) {
+    // TODO: fix naming conflicts
+    // (maybe should not name variabls
+    // rather just identify them by
+    // memory pos)
     const char source[1024] =
         "int test() {"
         "   return 10;"
         "}"
         ""
         "int main() {"
-        "   int a = test();"
+        "   int lol = 8;"
         "   return test();"
         "}";
 
