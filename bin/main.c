@@ -12,7 +12,7 @@ int main(void) {
         "}"
         ""
         "int main() {"
-        "   test();"
+        "   int a = test();"
         "   return test();"
         "}";
 

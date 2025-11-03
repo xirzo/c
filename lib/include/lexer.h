@@ -16,6 +16,7 @@ typedef enum {
     C_LBRACE,
     C_RBRACE,
     C_SEMICOLON,
+    C_ASSIGN,
     C_EOF,
 } c_token_type;
 

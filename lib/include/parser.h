@@ -36,6 +36,7 @@ typedef enum {
     C_STATEMENT_RETURN,
     C_STATEMENT_FUNCTION_DECLARATION,
     C_STATEMENT_EXPRESSION,
+    C_STATEMENT_ASSIGNMENT,
     C_STATEMENT_NOOP,
 } c_ast_statement_type;
 
@@ -53,6 +54,11 @@ typedef struct {
     c_ast_block *body;
 } c_ast_function_declaration;
 
+typedef struct {
+    char *variable_name;
+    c_ast_expression *expression;
+} c_ast_variable_assignment;
+
 typedef struct c_ast_statement {
     c_ast_statement_type type;
 
@@ -61,6 +67,7 @@ typedef struct c_ast_statement {
         c_ast_return *return_statement;
         c_ast_function_declaration *function_declaration;
         c_ast_expression *expression;
+        c_ast_variable_assignment *assignment;
     };
 } c_ast_statement;
 
@@ -85,6 +92,7 @@ void c_parser_advance(c_parser *parser);
 c_token c_parser_peek(c_parser *parser);
 
 c_ast_statement *c_parser_parse_statement(c_parser *parser);
+c_ast_variable_assignment *c_parser_parse_variable_assignment(c_parser *parser);
 c_ast_expression *c_parser_parse_expression(c_parser *parser);
 c_ast_constant *c_parser_parse_constant(c_parser *parser);
 c_ast_function_call *c_parser_parse_function_call(c_parser *parser);
@@ -95,8 +103,9 @@ c_ast_function_declaration *c_parser_parse_function_declaration(
 
 void c_ast_free_expression(c_ast_expression *expression);
 void c_ast_free_statement(c_ast_statement *statement);
-void c_ast_free_statement_block(c_ast_block *block);
-void c_ast_free_statement_return(c_ast_return *ret);
+void c_ast_free_block(c_ast_block *block);
+void c_ast_free_return(c_ast_return *ret);
+void c_ast_free_variable_assignment(c_ast_variable_assignment *assignment);
 void c_ast_free_function_declaration(c_ast_function_declaration *declaration);
 
 #endif  // !PARSER_H

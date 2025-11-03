@@ -40,6 +40,14 @@ c_token c_parser_peek(c_parser *parser) {
     return parser->tokens[parser->read_position];
 }
 
+c_token c_parser_peek_ahead(c_parser *parser) {
+    if (parser->current_position + 1 >= arrlenu(parser->tokens)) {
+        EXIT_WITH_ERROR("Trying to read ahead after the end of tokens");
+    }
+
+    return parser->tokens[parser->read_position + 1];
+}
+
 c_ast_constant *c_parser_parse_constant(c_parser *parser) {
     c_ast_constant *constant = malloc(sizeof(c_ast_constant));
 
@@ -74,9 +82,15 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
 
     switch (parser->current_token.type) {
         case C_INTEGER:
-            statement->type = C_STATEMENT_FUNCTION_DECLARATION;
-            statement->function_declaration =
-                c_parser_parse_function_declaration(parser);
+            if (c_parser_peek_ahead(parser).type == C_LPAREN) {
+                statement->type = C_STATEMENT_FUNCTION_DECLARATION;
+                statement->function_declaration =
+                    c_parser_parse_function_declaration(parser);
+                break;
+            }
+
+            statement->type = C_STATEMENT_ASSIGNMENT;
+            statement->assignment = c_parser_parse_variable_assignment(parser);
             break;
         case C_LBRACE:
             statement->type = C_STATEMENT_BLOCK;
@@ -98,6 +112,29 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
     }
 
     return statement;
+}
+
+c_ast_variable_assignment *c_parser_parse_variable_assignment(
+    c_parser *parser) {
+    c_ast_variable_assignment *assignment =
+        malloc(sizeof(c_ast_variable_assignment));
+
+    c_parser_advance(parser);
+    assert(parser->current_token.type == C_IDENTIFIER);
+
+    assignment->variable_name = strdup(parser->current_token.string);
+
+    c_parser_advance(parser);
+    assert(parser->current_token.type == C_ASSIGN);
+
+    c_parser_advance(parser);
+
+    assignment->expression = c_parser_parse_expression(parser);
+
+    assert(parser->current_token.type == C_SEMICOLON);
+    c_parser_advance(parser);
+
+    return assignment;
 }
 
 c_ast_expression *c_parser_parse_expression(c_parser *parser) {
@@ -245,7 +282,7 @@ void c_ast_free_expression(c_ast_expression *expression) {
     free(expression);
 }
 
-void c_ast_free_statement_block(c_ast_block *block) {
+void c_ast_free_block(c_ast_block *block) {
     if (!block) {
         return;
     }
@@ -258,7 +295,7 @@ void c_ast_free_statement_block(c_ast_block *block) {
     free(block);
 }
 
-void c_ast_free_statement_return(c_ast_return *ret) {
+void c_ast_free_return(c_ast_return *ret) {
     if (!ret) {
         return;
     }
@@ -267,13 +304,25 @@ void c_ast_free_statement_return(c_ast_return *ret) {
     free(ret);
 }
 
+void c_ast_free_variable_assignment(c_ast_variable_assignment *assignment) {
+    if (!assignment) {
+        return;
+    }
+
+    free(assignment->variable_name);
+    if (assignment->expression) {
+        c_ast_free_expression(assignment->expression);
+    }
+    free(assignment);
+}
+
 void c_ast_free_function_declaration(c_ast_function_declaration *declaration) {
     if (!declaration) {
         return;
     }
 
     free(declaration->function_name);
-    c_ast_free_statement_block(declaration->body);
+    c_ast_free_block(declaration->body);
     free(declaration);
 }
 
@@ -292,16 +341,19 @@ void c_ast_free_statement(c_ast_statement *statement) {
 
     switch (statement->type) {
         case C_STATEMENT_BLOCK:
-            c_ast_free_statement_block(statement->block);
+            c_ast_free_block(statement->block);
             break;
         case C_STATEMENT_RETURN:
-            c_ast_free_statement_return(statement->return_statement);
+            c_ast_free_return(statement->return_statement);
             break;
         case C_STATEMENT_FUNCTION_DECLARATION:
             c_ast_free_function_declaration(statement->function_declaration);
             break;
         case C_STATEMENT_EXPRESSION:
             c_ast_free_expression_statement(statement->expression);
+            break;
+        case C_STATEMENT_ASSIGNMENT:
+            c_ast_free_variable_assignment(statement->assignment);
             break;
         default:
             EXIT_WITH_ERROR("Got unknown statement to free: %d\n",

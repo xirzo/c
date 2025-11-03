@@ -181,6 +181,12 @@ c_token *c_lexer_lex(c_lexer *lexer) {
                                   .symbol = lexer->current_char}));
                 c_lexer_advance(lexer);
                 break;
+            case '=':
+                arrput(tokens,
+                       ((c_token){.type = C_ASSIGN,
+                                  .symbol = lexer->current_char}));
+                c_lexer_advance(lexer);
+                break;
             default: {
                 if (isdigit(lexer->current_char)) {
                     arrput(tokens, c_lexer_lex_number(lexer));
