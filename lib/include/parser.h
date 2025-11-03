@@ -35,6 +35,8 @@ typedef enum {
     C_STATEMENT_BLOCK,
     C_STATEMENT_RETURN,
     C_STATEMENT_FUNCTION_DECLARATION,
+    C_STATEMENT_EXPRESSION,
+    C_STATEMENT_NOOP,
 } c_ast_statement_type;
 
 typedef struct {
@@ -58,6 +60,7 @@ typedef struct c_ast_statement {
         c_ast_block *block;
         c_ast_return *return_statement;
         c_ast_function_declaration *function_declaration;
+        c_ast_expression *expression;
     };
 } c_ast_statement;
 
@@ -81,6 +84,7 @@ void c_parser_free_program(c_ast_program *program);
 void c_parser_advance(c_parser *parser);
 c_token c_parser_peek(c_parser *parser);
 
+c_ast_statement *c_parser_parse_statement(c_parser *parser);
 c_ast_expression *c_parser_parse_expression(c_parser *parser);
 c_ast_constant *c_parser_parse_constant(c_parser *parser);
 c_ast_function_call *c_parser_parse_function_call(c_parser *parser);

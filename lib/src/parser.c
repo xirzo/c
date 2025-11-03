@@ -67,6 +67,39 @@ c_ast_function_call *c_parser_parse_function_call(c_parser *parser) {
     return function_call;
 }
 
+c_ast_statement *c_parser_parse_statement(c_parser *parser) {
+    c_ast_statement *statement = malloc(sizeof(c_ast_statement));
+
+    LOG_DEBUG("Parsing statement\n");
+
+    switch (parser->current_token.type) {
+        case C_INTEGER:
+            statement->type = C_STATEMENT_FUNCTION_DECLARATION;
+            statement->function_declaration =
+                c_parser_parse_function_declaration(parser);
+            break;
+        case C_LBRACE:
+            statement->type = C_STATEMENT_BLOCK;
+            statement->block = c_parser_parse_block(parser);
+            break;
+        case C_RETURN:
+            statement->type = C_STATEMENT_RETURN;
+            statement->return_statement = c_parser_parse_return(parser);
+            break;
+        case C_SEMICOLON:
+            statement->type = C_STATEMENT_NOOP;
+            break;
+        default:
+            statement->type = C_STATEMENT_EXPRESSION;
+            statement->expression = c_parser_parse_expression(parser);
+            assert(parser->current_token.type == C_SEMICOLON);
+            c_parser_advance(parser);
+            break;
+    }
+
+    return statement;
+}
+
 c_ast_expression *c_parser_parse_expression(c_parser *parser) {
     c_ast_expression *expression = malloc(sizeof(c_ast_expression));
 
@@ -119,16 +152,12 @@ c_ast_block *c_parser_parse_block(c_parser *parser) {
     assert(parser->current_token.type == C_LBRACE);
     c_parser_advance(parser);
 
-    c_ast_return *return_statement = c_parser_parse_return(parser);
-
-    c_ast_statement *statement = malloc(sizeof(c_ast_statement));
-    statement->type = C_STATEMENT_RETURN;
-    statement->return_statement = return_statement;
-
-    arrput(block->statements, statement);
+    while (parser->current_token.type != C_RBRACE) {
+        c_ast_statement *statement = c_parser_parse_statement(parser);
+        arrput(block->statements, statement);
+    }
 
     assert(parser->current_token.type == C_RBRACE);
-
     c_parser_advance(parser);
 
     return block;
