@@ -12,6 +12,7 @@ int main(void) {
     // memory pos)
     const char source[1024] =
         "int test() {"
+        "   int lol = 8;"
         "   return 10;"
         "}"
         ""
@@ -43,6 +44,9 @@ int main(void) {
     }
 
     fclose(file);
+
+    system("nasm -f elf64 c.asm -o c.o");
+    system("ld c.o -o c");
 
     for (int i = 0; i < arrlen(asm_lines); i++) {
         free(asm_lines[i]);

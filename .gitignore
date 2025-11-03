@@ -1,6 +1,9 @@
 # Prerequisites
 *.d
 
+c
+c.asm
+
 .cache
 
 # Object files
