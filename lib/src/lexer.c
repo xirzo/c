@@ -192,7 +192,7 @@ c_token *c_lexer_lex(c_lexer *lexer) {
                     continue;
                 }
 
-                EXIT_WITH_ERROR_ARGS(
+                EXIT_WITH_ERROR(
                     "Got unknown character: \'%c\' (%d), position: %zu\n",
                     lexer->current_char,
                     lexer->current_char,

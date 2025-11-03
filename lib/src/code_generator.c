@@ -105,7 +105,8 @@ char **c_code_gen_emit_expression(c_ast_expression *expression) {
         }
         default:
             arrfree(lines);
-            EXIT_WITH_ERROR("Got unsupported type for expression emit");
+            EXIT_WITH_ERROR("Got unsupported type for expression emit: %d\n",
+                            expression->type);
     }
 
     return lines;
@@ -150,7 +151,8 @@ char **c_code_gen_emit_statement(c_ast_statement *statement) {
         }
         default:
             arrfree(lines);
-            EXIT_WITH_ERROR("Got unsupported type for statement emit");
+            EXIT_WITH_ERROR("Got unsupported type for statement emit: %d\n",
+                            statement->type);
     }
 
     return lines;

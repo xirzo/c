@@ -118,7 +118,7 @@ c_ast_expression *c_parser_parse_expression(c_parser *parser) {
 
         default:
             free(expression);
-            EXIT_WITH_ERROR_ARGS(
+            EXIT_WITH_ERROR(
                 "Received improper token for parse expression: %d\n",
                 parser->current_token.type);
     }
@@ -207,8 +207,8 @@ c_ast_program *c_parser_parse(c_parser *parser) {
                 break;
             default:
                 c_parser_free_program(program);
-                EXIT_WITH_ERROR_ARGS("Received improper token for parse: %d\n",
-                                     parser->current_token.type);
+                EXIT_WITH_ERROR("Received improper token for parse: %d\n",
+                                parser->current_token.type);
         }
     }
 

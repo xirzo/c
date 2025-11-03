@@ -3,16 +3,10 @@
 
 #include <stdio.h>
 
-#define EXIT_WITH_ERROR(error)  \
-    do {                        \
-        fprintf(stderr, error); \
-        exit(1);                \
-    } while (1)
-
-#define EXIT_WITH_ERROR_ARGS(error, ...)     \
-    do {                                     \
-        fprintf(stderr, error, __VA_ARGS__); \
-        exit(1);                             \
+#define EXIT_WITH_ERROR(...)          \
+    do {                              \
+        fprintf(stderr, __VA_ARGS__); \
+        exit(1);                      \
     } while (1)
 
 #if defined(ENABLE_LOGGING) && ENABLE_LOGGING == 1
