@@ -25,5 +25,6 @@ char **c_code_gen_emit_block(c_ast_block *block, int *current_offset);
 char **c_code_gen_emit_return(c_ast_return *ret, int *current_offset);
 char **c_code_gen_emit_expression(c_ast_expression *expression,
                                   int *current_offset);
+char **c_code_gen_emit_variable(c_ast_variable *variable);
 
 #endif  // !CODE_GENERATOR

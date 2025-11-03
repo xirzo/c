@@ -1,4 +1,5 @@
 #include "code_generator.h"
+#include <string.h>
 #include "parser.h"
 #include "stb_ds.h"
 #include "utils.h"
@@ -146,11 +147,30 @@ char **c_code_gen_emit_expression(c_ast_expression *expression,
             arrfree(function_call_lines);
             break;
         }
+        case C_VARIABLE: {
+            char **variable_lines =
+                c_code_gen_emit_variable(expression->variable);
+            ADD_TO_LINES(variable_lines);
+            arrfree(variable_lines);
+            break;
+        }
         default:
             arrfree(lines);
             EXIT_WITH_ERROR("Got unsupported type for expression emit: %d\n",
                             expression->type);
     }
+
+    return lines;
+}
+
+char **c_code_gen_emit_variable(c_ast_variable *variable) {
+    char **lines = NULL;
+
+    size_t length = strlen(variable->name) + 30;
+    char *load_line = malloc(length);
+
+    snprintf(load_line, length, "    mov rax, qword %s", variable->name);
+    arrput(lines, load_line);
 
     return lines;
 }
@@ -220,7 +240,7 @@ char **c_code_gen_emit_statement(c_ast_statement *statement,
                         arrfree(function_call_lines);
                         break;
                     }
-                    case C_CONSTANT: {
+                    default: {
                         char **expression_lines = c_code_gen_emit_expression(
                             statement->assignment->expression, current_offset);
                         ADD_TO_LINES(expression_lines);
