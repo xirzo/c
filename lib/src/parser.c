@@ -238,7 +238,8 @@ void c_ast_free_expression(c_ast_expression *expression) {
             free(expression->function_call);
             break;
         default:
-            EXIT_WITH_ERROR("Got unknown expression to free\n");
+            EXIT_WITH_ERROR("Got unknown expression to free: %d\n",
+                            expression->type);
     }
 
     free(expression);
@@ -276,6 +277,14 @@ void c_ast_free_function_declaration(c_ast_function_declaration *declaration) {
     free(declaration);
 }
 
+void c_ast_free_expression_statement(c_ast_expression *expression) {
+    if (!expression) {
+        return;
+    }
+
+    c_ast_free_expression(expression);
+}
+
 void c_ast_free_statement(c_ast_statement *statement) {
     if (!statement) {
         return;
@@ -291,8 +300,12 @@ void c_ast_free_statement(c_ast_statement *statement) {
         case C_STATEMENT_FUNCTION_DECLARATION:
             c_ast_free_function_declaration(statement->function_declaration);
             break;
+        case C_STATEMENT_EXPRESSION:
+            c_ast_free_expression_statement(statement->expression);
+            break;
         default:
-            EXIT_WITH_ERROR("Got unknown statement to free\n");
+            EXIT_WITH_ERROR("Got unknown statement to free: %d\n",
+                            statement->type);
     }
 
     free(statement);

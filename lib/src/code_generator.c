@@ -149,6 +149,16 @@ char **c_code_gen_emit_statement(c_ast_statement *statement) {
             arrfree(function_declaration_lines);
             break;
         }
+        case C_STATEMENT_EXPRESSION: {
+            char **expression_lines =
+                c_code_gen_emit_expression(statement->expression);
+            ADD_TO_LINES(expression_lines);
+            arrfree(expression_lines);
+            break;
+        }
+        case C_STATEMENT_NOOP: {
+            break;
+        }
         default:
             arrfree(lines);
             EXIT_WITH_ERROR("Got unsupported type for statement emit: %d\n",
