@@ -12,6 +12,7 @@ typedef enum {
     C_CONSTANT,
     C_FUNCTION_CALL,
     C_VARIABLE,
+    C_BINARY_EXPRESSION,
 } c_ast_expression_type;
 
 typedef struct {
@@ -27,6 +28,12 @@ typedef struct {
     char *name;
 } c_ast_variable;
 
+typedef struct {
+    char symbol;
+    c_ast_expression *lhs;
+    c_ast_expression *rhs;
+} c_ast_binary_expression;
+
 typedef struct c_ast_expression {
     c_ast_expression_type type;
 
@@ -34,6 +41,7 @@ typedef struct c_ast_expression {
         c_ast_constant *constant;
         c_ast_function_call *function_call;
         c_ast_variable *variable;
+        c_ast_binary_expression *binary;
     };
 } c_ast_expression;
 
@@ -88,6 +96,11 @@ typedef struct {
     size_t read_position;
 } c_parser;
 
+typedef struct {
+    double left;
+    double right;
+} c_infix_binding_power;
+
 c_parser *c_parser_create(c_token *tokens);
 c_ast_program *c_parser_parse(c_parser *parser);
 void c_parser_free(c_parser *parser);
@@ -99,7 +112,11 @@ c_token c_parser_peek(c_parser *parser);
 
 c_ast_statement *c_parser_parse_statement(c_parser *parser);
 c_ast_variable_assignment *c_parser_parse_variable_assignment(c_parser *parser);
+c_infix_binding_power c_get_infix_binding_power(c_token_type token_type);
 c_ast_expression *c_parser_parse_expression(c_parser *parser);
+c_ast_expression *c_parser_parse_expression_with_precedence(
+    c_parser *parser,
+    double min_binding_power);
 c_ast_constant *c_parser_parse_constant(c_parser *parser);
 c_ast_function_call *c_parser_parse_function_call(c_parser *parser);
 c_ast_return *c_parser_parse_return(c_parser *parser);

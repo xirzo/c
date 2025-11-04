@@ -24,8 +24,12 @@ c_parser *c_parser_create(c_token *tokens) {
 }
 
 void c_parser_advance(c_parser *parser) {
-    if (parser->current_position >= arrlenu(parser->tokens)) {
-        EXIT_WITH_ERROR("Already reached the end of the source\n");
+    size_t tokens_len = arrlenu(parser->tokens);
+
+    if (parser->read_position >= tokens_len) {
+        parser->current_token.type = C_EOF;
+        parser->current_position = tokens_len;
+        return;
     }
 
     parser->current_token = parser->tokens[parser->read_position];
@@ -34,16 +38,24 @@ void c_parser_advance(c_parser *parser) {
 }
 
 c_token c_parser_peek(c_parser *parser) {
-    if (parser->current_position >= arrlenu(parser->tokens)) {
-        EXIT_WITH_ERROR("Trying to read after the end of tokens");
+    size_t tokens_len = arrlenu(parser->tokens);
+
+    if (parser->read_position >= tokens_len) {
+        c_token eof_token = {0};
+        eof_token.type = C_EOF;
+        return eof_token;
     }
 
     return parser->tokens[parser->read_position];
 }
 
 c_token c_parser_peek_ahead(c_parser *parser) {
-    if (parser->current_position + 1 >= arrlenu(parser->tokens)) {
-        EXIT_WITH_ERROR("Trying to read ahead after the end of tokens");
+    size_t tokens_len = arrlenu(parser->tokens);
+
+    if (parser->read_position + 1 >= tokens_len) {
+        c_token eof_token = {0};
+        eof_token.type = C_EOF;
+        return eof_token;
     }
 
     return parser->tokens[parser->read_position + 1];
@@ -140,39 +152,112 @@ c_ast_variable_assignment *c_parser_parse_variable_assignment(
 }
 
 c_ast_expression *c_parser_parse_expression(c_parser *parser) {
-    c_ast_expression *expression = malloc(sizeof(c_ast_expression));
+    return c_parser_parse_expression_with_precedence(parser, 0);
+}
 
-    LOG_DEBUG("Parsing expression\n");
+c_infix_binding_power c_get_infix_binding_power(c_token_type token_type) {
+    switch (token_type) {
+        case C_PLUS:
+        case C_MINUS:
+            return (c_infix_binding_power){.left = 1, .right = 2};
+        case C_ASTERISK:
+        case C_SLASH:
+            return (c_infix_binding_power){.left = 3, .right = 4};
+        default:
+            EXIT_WITH_ERROR(
+                "Received improper token type for a infix operator: %d\n",
+                token_type);
+    }
+}
+
+c_ast_expression *c_parser_parse_expression_with_precedence(
+    c_parser *parser,
+    double min_binding_power) {
+    LOG_DEBUG("Parsing expression (Pratt Parsing)\n");
+
+    c_ast_expression *lhs = malloc(sizeof(c_ast_expression));
 
     switch (parser->current_token.type) {
         case C_INTEGER_LITERAL: {
-            expression->type = C_CONSTANT;
-            expression->constant = c_parser_parse_constant(parser);
+            lhs->type = C_CONSTANT;
+            lhs->constant = c_parser_parse_constant(parser);
             break;
         }
 
-        // TODO: segregte function call from variables
         case C_IDENTIFIER: {
-            if (c_parser_peek(parser).type == C_LBRACE) {
-                expression->type = C_FUNCTION_CALL;
-                expression->function_call =
-                    c_parser_parse_function_call(parser);
+            if (c_parser_peek(parser).type == C_LPAREN) {
+                lhs->type = C_FUNCTION_CALL;
+                lhs->function_call = c_parser_parse_function_call(parser);
                 break;
             }
 
-            expression->type = C_VARIABLE;
-            expression->variable = c_parser_parse_variable(parser);
+            lhs->type = C_VARIABLE;
+            lhs->variable = c_parser_parse_variable(parser);
             break;
         }
 
         default:
-            free(expression);
+            free(lhs);
             EXIT_WITH_ERROR(
                 "Received improper token for parse expression: %d\n",
                 parser->current_token.type);
     }
 
-    return expression;
+    while (1) {
+        c_token_type operator_type = parser->current_token.type;
+
+        switch (operator_type) {
+            case C_PLUS:
+            case C_MINUS:
+            case C_ASTERISK:
+            case C_SLASH:
+                break;
+            case C_EOF:
+                return lhs;
+            default:
+                return lhs;
+        }
+
+        c_infix_binding_power power = c_get_infix_binding_power(operator_type);
+
+        if (power.left < min_binding_power) {
+            break;
+        }
+
+        c_parser_advance(parser);
+
+        c_ast_expression *rhs =
+            c_parser_parse_expression_with_precedence(parser, power.right);
+
+        c_ast_expression *binary_expr = malloc(sizeof(c_ast_expression));
+        binary_expr->type = C_BINARY_EXPRESSION;
+        binary_expr->binary = malloc(sizeof(c_ast_binary_expression));
+
+        switch (operator_type) {
+            case C_PLUS:
+                binary_expr->binary->symbol = '+';
+                break;
+            case C_MINUS:
+                binary_expr->binary->symbol = '-';
+                break;
+            case C_ASTERISK:
+                binary_expr->binary->symbol = '*';
+                break;
+            case C_SLASH:
+                binary_expr->binary->symbol = '/';
+                break;
+            default:
+                EXIT_WITH_ERROR("Received improper token for operator: %d\n",
+                                operator_type);
+        }
+
+        binary_expr->binary->lhs = lhs;
+        binary_expr->binary->rhs = rhs;
+
+        lhs = binary_expr;
+    }
+
+    return lhs;
 }
 
 c_ast_variable *c_parser_parse_variable(c_parser *parser) {
@@ -298,6 +383,11 @@ void c_ast_free_expression(c_ast_expression *expression) {
         case C_FUNCTION_CALL:
             free(expression->function_call->function_name);
             free(expression->function_call);
+            break;
+        case C_BINARY_EXPRESSION:
+            c_ast_free_expression(expression->binary->lhs);
+            c_ast_free_expression(expression->binary->rhs);
+            free(expression->binary);
             break;
         case C_VARIABLE:
             c_ast_free_variable(expression->variable);

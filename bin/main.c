@@ -11,13 +11,8 @@ int main(void) {
     // rather just identify them by
     // memory pos)
     const char source[1024] =
-        "int test() {"
-        "   int lol = 8;"
-        "   return 10;"
-        "}"
-        ""
         "int main() {"
-        "   int lol = 8;"
+        "   int lol = 8 + 8;"
         "   return lol;"
         "}";
 
