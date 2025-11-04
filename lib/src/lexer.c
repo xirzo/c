@@ -9,7 +9,10 @@
 
 void c_lexer_advance(c_lexer *lexer) {
     if (lexer->current_position == lexer->source_length) {
-        EXIT_WITH_ERROR("Already reached the end of the source\n");
+        EXIT_WITH_ERROR(
+            "Already reached the end of the source, line: %zu, columns: %zu\n",
+            lexer->current_line,
+            lexer->current_position);
     }
 
     if (lexer->current_char == '\n') {
@@ -38,6 +41,7 @@ c_token c_lexer_create_token(c_lexer *lexer,
                      .symbol = symbol,
                      .line = lexer->start_line,
                      .column = lexer->start_column};
+    LOG_DEBUG("Created token %s\n", c_token_type_to_string(token.type));
     return token;
 }
 
@@ -168,7 +172,6 @@ c_token *c_lexer_lex(c_lexer *lexer) {
                 arrput(tokens,
                        c_lexer_create_token(
                            lexer, C_EOF, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
                 break;
 
             case '+':
