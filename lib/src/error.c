@@ -23,7 +23,7 @@ void c_error_context_free(c_error_context *ctx) {
     }
 
     for (int i = 0; i < arrlen(ctx->errors); i++) {
-        free((void *)ctx[i].errors->message);
+        free((void *)ctx->errors[i].message);
     }
 
     arrfree(ctx->errors);
