@@ -15,10 +15,16 @@ void test_code_gen_main_function(void) {
         "   return 69;"
         "}";
     char result[4096] = {0};
+    c_error_context *error_context = c_error_context_create();
+    if (!error_context) {
+        fprintf(stderr, "Failed to allocate memory for error_context\n");
+        return;
+    }
     c_lexer *lexer = c_lexer_create(source);
     c_token *tokens = c_lexer_lex(lexer);
     c_lexer_free(lexer);
-    c_parser *parser = c_parser_create(tokens);
+    c_parser *parser =
+        c_parser_create(tokens, error_context, "test_filename.c");
     c_ast_program *program = c_parser_parse(parser);
 
     char **asm_lines = c_code_gen_emit(program);

@@ -12,9 +12,18 @@ void test_parse_function_declaration(void) {
         "int main() {"
         "   return 0;"
         "}";
+
+    c_error_context *error_context = c_error_context_create();
+
+    if (!error_context) {
+        fprintf(stderr, "Failed to allocate memory for error_context\n");
+        return;
+    }
+
     c_lexer *lexer = c_lexer_create(source);
     c_token *tokens = c_lexer_lex(lexer);
-    c_parser *parser = c_parser_create(tokens);
+    c_parser *parser =
+        c_parser_create(tokens, error_context, "test_filename.c");
 
     c_ast_function_declaration *func =
         c_parser_parse_function_declaration(parser);

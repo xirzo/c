@@ -669,6 +669,8 @@ void c_ast_free_statement(c_ast_statement *statement) {
         case C_STATEMENT_ASSIGNMENT:
             c_ast_free_variable_assignment(statement->assignment);
             break;
+        case C_STATEMENT_NOOP:
+            break;
         default:
             EXIT_WITH_ERROR("Got unknown statement to free: %d\n",
                             statement->type);
