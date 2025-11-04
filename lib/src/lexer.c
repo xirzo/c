@@ -150,6 +150,34 @@ c_token *c_lexer_lex(c_lexer *lexer) {
                 c_lexer_advance(lexer);
                 break;
 
+            case '+':
+                arrput(
+                    tokens,
+                    ((c_token){.type = C_PLUS, .symbol = lexer->current_char}));
+                c_lexer_advance(lexer);
+                break;
+
+            case '-':
+                arrput(tokens,
+                       ((c_token){.type = C_MINUS,
+                                  .symbol = lexer->current_char}));
+                c_lexer_advance(lexer);
+                break;
+
+            case '*':
+                arrput(tokens,
+                       ((c_token){.type = C_ASTERISK,
+                                  .symbol = lexer->current_char}));
+                c_lexer_advance(lexer);
+                break;
+
+            case '/':
+                arrput(tokens,
+                       ((c_token){.type = C_SLASH,
+                                  .symbol = lexer->current_char}));
+                c_lexer_advance(lexer);
+                break;
+
             case '{':
                 arrput(tokens,
                        ((c_token){.type = C_LBRACE,

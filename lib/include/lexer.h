@@ -11,6 +11,11 @@ typedef enum {
     C_INTEGER,
     C_RETURN,
 
+    C_PLUS,
+    C_MINUS,
+    C_ASTERISK,
+    C_SLASH,
+
     C_LPAREN,
     C_RPAREN,
     C_LBRACE,
