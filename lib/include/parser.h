@@ -1,6 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "error.h"
 #include "lexer.h"
 
 typedef struct c_ast_expression c_ast_expression;
@@ -90,18 +91,22 @@ typedef struct {
 } c_ast_program;
 
 typedef struct {
+    double left;
+    double right;
+} c_infix_binding_power;
+
+typedef struct {
+    c_error_context *error_context;
+    const char *filename;
     c_token *tokens;
     c_token current_token;
     size_t current_position;
     size_t read_position;
 } c_parser;
 
-typedef struct {
-    double left;
-    double right;
-} c_infix_binding_power;
-
-c_parser *c_parser_create(c_token *tokens);
+c_parser *c_parser_create(c_token *tokens,
+                          c_error_context *error_context,
+                          const char *filename);
 c_ast_program *c_parser_parse(c_parser *parser);
 void c_parser_free(c_parser *parser);
 void c_parser_free_program(c_ast_program *program);
@@ -132,5 +137,8 @@ void c_ast_free_return(c_ast_return *ret);
 void c_ast_free_variable_assignment(c_ast_variable_assignment *assignment);
 void c_ast_free_function_declaration(c_ast_function_declaration *declaration);
 void c_ast_free_variable(c_ast_variable *variable);
+
+void c_parser_synchronize_to_declaration(c_parser *parser);
+void c_parser_synchronize(c_parser *parser);
 
 #endif  // !PARSER_H

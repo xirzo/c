@@ -3,14 +3,18 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "error.h"
 #include "lexer.h"
 #include "utils.h"
 #include "stb_ds.h"
 #include "str.h"
 
-c_parser *c_parser_create(c_token *tokens) {
+c_parser *c_parser_create(c_token *tokens,
+                          c_error_context *error_context,
+                          const char *filename) {
     if (arrlen(tokens) == 0) {
-        EXIT_WITH_ERROR("Got empty tokens list\n");
+        c_error_report(error_context, "Got empty token list", filename, 1, 1);
+        return NULL;
     }
 
     c_parser *parser = malloc(sizeof(c_parser));
@@ -19,6 +23,8 @@ c_parser *c_parser_create(c_token *tokens) {
     parser->read_position = 1;
     parser->current_token = tokens[0];
     parser->tokens = tokens;
+    parser->error_context = error_context;
+    parser->filename = filename;
 
     return parser;
 }
@@ -63,12 +69,8 @@ c_token c_parser_peek_ahead(c_parser *parser) {
 
 c_ast_constant *c_parser_parse_constant(c_parser *parser) {
     c_ast_constant *constant = malloc(sizeof(c_ast_constant));
-
-    // NOTE: returns 0 if invalid, maybe change to some other function later
     constant->value = atoi(parser->current_token.string);
-
     c_parser_advance(parser);
-
     return constant;
 }
 
@@ -78,13 +80,30 @@ c_ast_function_call *c_parser_parse_function_call(c_parser *parser) {
 
     LOG_DEBUG("Parsing function call\n");
     c_parser_advance(parser);
-    assert(parser->current_token.type == C_LPAREN);
+
+    if (parser->current_token.type != C_LPAREN) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected '(' after function name",
+                                  parser->current_token,
+                                  parser->filename);
+        free(function_call->function_name);
+        free(function_call);
+        return NULL;
+    }
 
     c_parser_advance(parser);
-    assert(parser->current_token.type == C_RPAREN);
+
+    if (parser->current_token.type != C_RPAREN) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected ')' after function call",
+                                  parser->current_token,
+                                  parser->filename);
+        free(function_call->function_name);
+        free(function_call);
+        return NULL;
+    }
 
     c_parser_advance(parser);
-
     return function_call;
 }
 
@@ -99,27 +118,57 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
                 statement->type = C_STATEMENT_FUNCTION_DECLARATION;
                 statement->function_declaration =
                     c_parser_parse_function_declaration(parser);
+                if (!statement->function_declaration) {
+                    free(statement);
+                    return NULL;
+                }
                 break;
             }
 
             statement->type = C_STATEMENT_ASSIGNMENT;
             statement->assignment = c_parser_parse_variable_assignment(parser);
+            if (!statement->assignment) {
+                free(statement);
+                return NULL;
+            }
             break;
         case C_LBRACE:
             statement->type = C_STATEMENT_BLOCK;
             statement->block = c_parser_parse_block(parser);
+            if (!statement->block) {
+                free(statement);
+                return NULL;
+            }
             break;
         case C_RETURN:
             statement->type = C_STATEMENT_RETURN;
             statement->return_statement = c_parser_parse_return(parser);
+            if (!statement->return_statement) {
+                free(statement);
+                return NULL;
+            }
             break;
         case C_SEMICOLON:
             statement->type = C_STATEMENT_NOOP;
+            c_parser_advance(parser);
             break;
         default:
             statement->type = C_STATEMENT_EXPRESSION;
             statement->expression = c_parser_parse_expression(parser);
-            assert(parser->current_token.type == C_SEMICOLON);
+            if (!statement->expression) {
+                free(statement);
+                return NULL;
+            }
+
+            if (parser->current_token.type != C_SEMICOLON) {
+                c_error_report_with_token(parser->error_context,
+                                          "Expected ';' after expression",
+                                          parser->current_token,
+                                          parser->filename);
+                c_ast_free_expression(statement->expression);
+                free(statement);
+                return NULL;
+            }
             c_parser_advance(parser);
             break;
     }
@@ -134,18 +183,49 @@ c_ast_variable_assignment *c_parser_parse_variable_assignment(
         malloc(sizeof(c_ast_variable_assignment));
 
     c_parser_advance(parser);
-    assert(parser->current_token.type == C_IDENTIFIER);
+
+    if (parser->current_token.type != C_IDENTIFIER) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected identifier after type",
+                                  parser->current_token,
+                                  parser->filename);
+        free(assignment);
+        return NULL;
+    }
 
     assignment->variable_name = strdup(parser->current_token.string);
 
     c_parser_advance(parser);
-    assert(parser->current_token.type == C_ASSIGN);
+
+    if (parser->current_token.type != C_ASSIGN) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected '=' after variable name",
+                                  parser->current_token,
+                                  parser->filename);
+        free(assignment->variable_name);
+        free(assignment);
+        return NULL;
+    }
 
     c_parser_advance(parser);
 
     assignment->expression = c_parser_parse_expression(parser);
+    if (!assignment->expression) {
+        free(assignment->variable_name);
+        free(assignment);
+        return NULL;
+    }
 
-    assert(parser->current_token.type == C_SEMICOLON);
+    if (parser->current_token.type != C_SEMICOLON) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected ';' after assignment",
+                                  parser->current_token,
+                                  parser->filename);
+        free(assignment->variable_name);
+        c_ast_free_expression(assignment->expression);
+        free(assignment);
+        return NULL;
+    }
     c_parser_advance(parser);
 
     return assignment;
@@ -164,9 +244,7 @@ c_infix_binding_power c_get_infix_binding_power(c_token_type token_type) {
         case C_SLASH:
             return (c_infix_binding_power){.left = 3, .right = 4};
         default:
-            EXIT_WITH_ERROR(
-                "Received improper token type for a infix operator: %d\n",
-                token_type);
+            return (c_infix_binding_power){.left = 0, .right = 0};
     }
 }
 
@@ -188,6 +266,10 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
             if (c_parser_peek(parser).type == C_LPAREN) {
                 lhs->type = C_FUNCTION_CALL;
                 lhs->function_call = c_parser_parse_function_call(parser);
+                if (!lhs->function_call) {
+                    free(lhs);
+                    return NULL;
+                }
                 break;
             }
 
@@ -197,10 +279,12 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
         }
 
         default:
+            c_error_report_with_token(parser->error_context,
+                                      "Expected expression",
+                                      parser->current_token,
+                                      parser->filename);
             free(lhs);
-            EXIT_WITH_ERROR(
-                "Received improper token for parse expression: %d\n",
-                parser->current_token.type);
+            return NULL;
     }
 
     while (1) {
@@ -228,6 +312,10 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
 
         c_ast_expression *rhs =
             c_parser_parse_expression_with_precedence(parser, power.right);
+        if (!rhs) {
+            c_ast_free_expression(lhs);
+            return NULL;
+        }
 
         c_ast_expression *binary_expr = malloc(sizeof(c_ast_expression));
         binary_expr->type = C_BINARY_EXPRESSION;
@@ -247,13 +335,12 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
                 binary_expr->binary->symbol = '/';
                 break;
             default:
-                EXIT_WITH_ERROR("Received improper token for operator: %d\n",
-                                operator_type);
+                binary_expr->binary->symbol = '?';
+                break;
         }
 
         binary_expr->binary->lhs = lhs;
         binary_expr->binary->rhs = rhs;
-
         lhs = binary_expr;
     }
 
@@ -265,9 +352,16 @@ c_ast_variable *c_parser_parse_variable(c_parser *parser) {
 
     LOG_DEBUG("Parsing variable\n");
 
-    assert(parser->current_token.type == C_IDENTIFIER);
-    variable->name = strdup(parser->current_token.string);
+    if (parser->current_token.type != C_IDENTIFIER) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected identifier",
+                                  parser->current_token,
+                                  parser->filename);
+        free(variable);
+        return NULL;
+    }
 
+    variable->name = strdup(parser->current_token.string);
     c_parser_advance(parser);
 
     return variable;
@@ -278,12 +372,32 @@ c_ast_return *c_parser_parse_return(c_parser *parser) {
 
     LOG_DEBUG("Parsing return\n");
 
-    assert(parser->current_token.type == C_RETURN);
+    if (parser->current_token.type != C_RETURN) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected 'return' keyword",
+                                  parser->current_token,
+                                  parser->filename);
+        free(return_statement);
+        return NULL;
+    }
+
     c_parser_advance(parser);
 
     return_statement->value = c_parser_parse_expression(parser);
+    if (!return_statement->value) {
+        free(return_statement);
+        return NULL;
+    }
 
-    assert(parser->current_token.type == C_SEMICOLON);
+    if (parser->current_token.type != C_SEMICOLON) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected ';' after return statement",
+                                  parser->current_token,
+                                  parser->filename);
+        c_ast_free_expression(return_statement->value);
+        free(return_statement);
+        return NULL;
+    }
     c_parser_advance(parser);
 
     return return_statement;
@@ -291,75 +405,157 @@ c_ast_return *c_parser_parse_return(c_parser *parser) {
 
 c_ast_block *c_parser_parse_block(c_parser *parser) {
     c_ast_block *block = malloc(sizeof(c_ast_block));
+    block->statements = NULL;
 
     LOG_DEBUG("Parsing block\n");
 
-    block->statements = NULL;
-
-    assert(parser->current_token.type == C_LBRACE);
-    c_parser_advance(parser);
-
-    while (parser->current_token.type != C_RBRACE) {
-        c_ast_statement *statement = c_parser_parse_statement(parser);
-        arrput(block->statements, statement);
+    if (parser->current_token.type != C_LBRACE) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected '{' to start block",
+                                  parser->current_token,
+                                  parser->filename);
+        free(block);
+        return NULL;
     }
 
-    assert(parser->current_token.type == C_RBRACE);
     c_parser_advance(parser);
+
+    while (parser->current_token.type != C_RBRACE
+           && parser->current_token.type != C_EOF) {
+        c_ast_statement *statement = c_parser_parse_statement(parser);
+        if (statement) {
+            arrput(block->statements, statement);
+        } else {
+            c_parser_synchronize(parser);
+        }
+    }
+
+    if (parser->current_token.type != C_RBRACE) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected '}' to end block",
+                                  parser->current_token,
+                                  parser->filename);
+    } else {
+        c_parser_advance(parser);
+    }
 
     return block;
 }
 
 c_ast_function_declaration *c_parser_parse_function_declaration(
     c_parser *parser) {
-    // NOTE: using asserts is not great :)
     LOG_DEBUG("Parsing function declaration\n");
     c_ast_function_declaration *function_declaration =
         malloc(sizeof(c_ast_function_declaration));
-
     function_declaration->body = NULL;
 
     c_parser_advance(parser);
-    assert(parser->current_token.type == C_IDENTIFIER);
+
+    if (parser->current_token.type != C_IDENTIFIER) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected function name after type",
+                                  parser->current_token,
+                                  parser->filename);
+        free(function_declaration);
+        return NULL;
+    }
 
     function_declaration->function_name = strdup(parser->current_token.string);
 
     c_parser_advance(parser);
-    assert(parser->current_token.type == C_LPAREN);
+
+    if (parser->current_token.type != C_LPAREN) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected '(' after function name",
+                                  parser->current_token,
+                                  parser->filename);
+        free(function_declaration->function_name);
+        free(function_declaration);
+        return NULL;
+    }
 
     c_parser_advance(parser);
-    assert(parser->current_token.type == C_RPAREN);
+
+    if (parser->current_token.type != C_RPAREN) {
+        c_error_report_with_token(parser->error_context,
+                                  "Expected ')' after function parameters",
+                                  parser->current_token,
+                                  parser->filename);
+        free(function_declaration->function_name);
+        free(function_declaration);
+        return NULL;
+    }
 
     c_parser_advance(parser);
 
     function_declaration->body = c_parser_parse_block(parser);
+    if (!function_declaration->body) {
+        free(function_declaration->function_name);
+        free(function_declaration);
+        return NULL;
+    }
 
     return function_declaration;
 }
 
 c_ast_program *c_parser_parse(c_parser *parser) {
     c_ast_program *program = malloc(sizeof(c_ast_program));
-
     program->function_declarations = NULL;
-    size_t tokens_len = arrlen(parser->tokens);
 
-    while (parser->current_token.type != C_EOF
-           && parser->current_position < tokens_len) {
+    while (parser->current_token.type != C_EOF) {
         switch (parser->current_token.type) {
-            case C_INTEGER:
-                arrput(program->function_declarations,
-                       c_parser_parse_function_declaration(parser));
-                continue;
+            case C_INTEGER: {
+                c_ast_function_declaration *decl =
+                    c_parser_parse_function_declaration(parser);
+                if (decl) {
+                    arrput(program->function_declarations, decl);
+                } else {
+                    c_parser_synchronize_to_declaration(parser);
+                }
+            } break;
             case C_EOF:
-                break;
+                goto done_parsing;
             default:
-                c_parser_free_program(program);
-                EXIT_WITH_ERROR("Received improper token for parse: %d\n",
-                                parser->current_token.type);
+                c_error_report_with_token(
+                    parser->error_context,
+                    "Unexpected token - expected function declaration",
+                    parser->current_token,
+                    parser->filename);
+                c_parser_advance(parser);
+                break;
         }
     }
 
+done_parsing:
     return program;
+}
+
+void c_parser_synchronize(c_parser *parser) {
+    while (parser->current_token.type != C_EOF) {
+        switch (parser->current_token.type) {
+            case C_SEMICOLON:
+            case C_RBRACE:
+            case C_LBRACE:
+            case C_RETURN:
+            case C_INTEGER:
+                return;
+            default:
+                c_parser_advance(parser);
+                break;
+        }
+    }
+}
+
+void c_parser_synchronize_to_declaration(c_parser *parser) {
+    while (parser->current_token.type != C_EOF) {
+        if (parser->current_token.type == C_INTEGER
+            && c_parser_peek(parser).type == C_IDENTIFIER
+            && c_parser_peek_ahead(parser).type == C_LPAREN) {
+            return;
+        }
+
+        c_parser_advance(parser);
+    }
 }
 
 void c_parser_free(c_parser *parser) {
@@ -472,6 +668,8 @@ void c_ast_free_statement(c_ast_statement *statement) {
             break;
         case C_STATEMENT_ASSIGNMENT:
             c_ast_free_variable_assignment(statement->assignment);
+            break;
+        case C_STATEMENT_NOOP:
             break;
         default:
             EXIT_WITH_ERROR("Got unknown statement to free: %d\n",

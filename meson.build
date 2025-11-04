@@ -18,7 +18,14 @@ else
 endif
 
 dependencies = []
-  srcs = ['./bin/main.c', './lib/src/lexer.c', './lib/src/parser.c', './lib/src/code_generator.c', './lib/src/str.c']
+srcs = [
+  './bin/main.c',
+  './lib/src/lexer.c',
+  './lib/src/parser.c',
+  './lib/src/code_generator.c',
+  './lib/src/str.c',
+  './lib/src/error.c'
+]
 
 warning_suppression_flags = [
   '-Wno-unused-parameter',
@@ -51,7 +58,8 @@ lexer_test_src = [
   './tests/lexer_tests.c',
   './lib/src/lexer.c', 
   './lib/src/stb_ds.c',
-  './lib/src/str.c'
+  './lib/src/str.c',
+  './lib/src/error.c'
 ]
 
 lexer_test = executable(
@@ -69,7 +77,8 @@ parser_test_src = [
   './lib/src/lexer.c', 
   './lib/src/parser.c', 
   './lib/src/stb_ds.c',
-  './lib/src/str.c'
+  './lib/src/str.c',
+  './lib/src/error.c'
 ]
 
 parser_test = executable(
@@ -88,7 +97,8 @@ code_gen_test_src = [
   './lib/src/parser.c', 
   './lib/src/code_generator.c', 
   './lib/src/stb_ds.c',
-  './lib/src/str.c'
+  './lib/src/str.c',
+  './lib/src/error.c'
 ]
 
 code_gen_test = executable(
