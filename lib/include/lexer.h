@@ -32,6 +32,9 @@ typedef struct {
     // cannot set string to NULL (causes double free)
     char *string;
     char symbol;
+
+    int line;
+    int column;
 } c_token;
 
 typedef struct {
@@ -40,11 +43,23 @@ typedef struct {
     char current_char;
     size_t current_position;
     size_t read_position;
+
+    size_t current_line;
+    size_t current_column;
+    size_t start_line;
+    size_t start_column;
 } c_lexer;
 
 c_lexer *c_lexer_create(const char *source);
+
+void c_lexer_start_token(c_lexer *lexer);
+c_token c_lexer_create_token(c_lexer *lexer,
+                             c_token_type type,
+                             char *string,
+                             char symbol);
 c_token *c_lexer_lex(c_lexer *lexer);
 void c_lexer_free(c_lexer *lexer);
 void c_lexer_free_tokens(c_token *tokens);
+const char *c_token_type_to_string(c_token_type type);
 
 #endif  // LEXER_H
