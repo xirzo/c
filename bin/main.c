@@ -6,30 +6,32 @@
 #include "parser.h"
 #include "utils.h"
 #include "stb_ds.h"
+#include "str.h"
 
-int main(void) {
-    // TODO: fix naming conflicts
-    // (maybe should not name variabls
-    // rather just identify them by
-    // memory pos)
-    const char source[1024] =
-        "int main() {"
-        "   int lol = 8 + ;"
-        "   return lol;"
-        "}";
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <source_file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    char *source = read_file_to_buffer(argv[1]);
+
+    if (!source) {
+        return EXIT_FAILURE;
+    }
 
     c_error_context *error_context = c_error_context_create();
 
     if (!error_context) {
         fprintf(stderr, "Failed to allocate memory for error_context\n");
+        free(source);
         return EXIT_FAILURE;
     }
 
     c_lexer *lexer = c_lexer_create(source);
     c_token *tokens = c_lexer_lex(lexer);
 
-    c_parser *parser =
-        c_parser_create(tokens, error_context, "test_filename.c");
+    c_parser *parser = c_parser_create(tokens, error_context, argv[1]);
 
     c_ast_program *program = c_parser_parse(parser);
 
@@ -39,6 +41,7 @@ int main(void) {
         c_parser_free_program(program);
         c_error_context_free(error_context);
         c_parser_free(parser);
+        free(source);
         return EXIT_FAILURE;
     }
 
@@ -55,7 +58,6 @@ int main(void) {
     for (int i = 0; i < arrlen(asm_lines); i++) {
         fprintf(file, "%s\n", asm_lines[i]);
     }
-
     fclose(file);
 
     system("nasm -f elf64 c.asm -o c.o");
@@ -69,5 +71,6 @@ int main(void) {
     c_parser_free_program(program);
     c_error_context_free(error_context);
     c_parser_free(parser);
+    free(source);
     return 0;
 }
