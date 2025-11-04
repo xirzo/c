@@ -23,6 +23,8 @@ char **c_code_gen_emit_statement(c_ast_statement *statement,
                                  int *current_offset);
 char **c_code_gen_emit_block(c_ast_block *block, int *current_offset);
 char **c_code_gen_emit_return(c_ast_return *ret, int *current_offset);
+char **c_code_gen_emit_binary_expression(c_ast_binary_expression *binary,
+                                         int *current_offset);
 char **c_code_gen_emit_expression(c_ast_expression *expression,
                                   int *current_offset);
 char **c_code_gen_emit_variable(c_ast_variable *variable);

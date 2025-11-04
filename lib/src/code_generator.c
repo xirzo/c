@@ -154,10 +154,63 @@ char **c_code_gen_emit_expression(c_ast_expression *expression,
             arrfree(variable_lines);
             break;
         }
+        case C_BINARY_EXPRESSION: {
+            char **binary_expression_lines = c_code_gen_emit_binary_expression(
+                expression->binary, current_offset);
+            ADD_TO_LINES(binary_expression_lines);
+            arrfree(binary_expression_lines);
+            break;
+        }
         default:
             arrfree(lines);
             EXIT_WITH_ERROR("Got unsupported type for expression emit: %d\n",
                             expression->type);
+    }
+
+    return lines;
+}
+
+char **c_code_gen_emit_binary_expression(c_ast_binary_expression *binary,
+                                         int *current_offset) {
+    char **lines = NULL;
+
+    char **lhs_lines = c_code_gen_emit_expression(binary->lhs, current_offset);
+    ADD_TO_LINES(lhs_lines);
+    arrfree(lhs_lines);
+
+    arrput(lines, strdup("    push rax"));
+
+    char **rhs_lines = c_code_gen_emit_expression(binary->rhs, current_offset);
+    ADD_TO_LINES(rhs_lines);
+    arrfree(rhs_lines);
+
+    arrput(lines, strdup("    pop rbx"));
+
+    switch (binary->symbol) {
+        case '+': {
+            arrput(lines, strdup("    add rax, rbx"));
+            break;
+        }
+        case '-': {
+            arrput(lines, strdup("    sub rbx, rax"));
+            arrput(lines, strdup("    mov rax, rbx"));
+            break;
+        }
+        case '*': {
+            arrput(lines, strdup("    imul rax, rbx"));
+            break;
+        }
+        case '/': {
+            arrput(lines, strdup("    mov rdx, 0"));
+            arrput(lines, strdup("    mov rcx, rax"));
+            arrput(lines, strdup("    mov rax, rbx"));
+            // NOTE: remainder in rdx
+            arrput(lines, strdup("    idiv rcx"));
+            break;
+        }
+        default:
+            EXIT_WITH_ERROR("Received inproper binary operator symbol: %c",
+                            binary->symbol);
     }
 
     return lines;
