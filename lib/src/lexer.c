@@ -149,6 +149,8 @@ c_token c_lexer_lex_identifier_or_keyword(c_lexer *lexer) {
     c_token_type type = C_IDENTIFIER;
     if (strcmp("int", word) == 0) {
         type = C_INTEGER;
+    } else if (strcmp("void", word) == 0) {
+        type = C_VOID;
     } else if (strcmp("return", word) == 0) {
         type = C_RETURN;
     }
@@ -315,6 +317,8 @@ const char *c_token_type_to_string(c_token_type type) {
             return "C_SEMICOLON";
         case C_ASSIGN:
             return "C_ASSIGN";
+        case C_VOID:
+            return "C_VOID";
         case C_EOF:
             return "C_EOF";
         default:

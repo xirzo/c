@@ -24,8 +24,8 @@ typedef struct {
 typedef struct {
     char *function_name;
 } c_ast_function_call;
+
 typedef struct {
-    // NOTE: for now only int
     char *name;
 } c_ast_variable;
 
@@ -64,7 +64,6 @@ typedef struct {
 } c_ast_return;
 
 typedef struct {
-    // TODO: add return type
     char *function_name;
     c_ast_block *body;
 } c_ast_function_declaration;
