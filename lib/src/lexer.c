@@ -7,7 +7,7 @@
 #include "stb_ds.h"
 #include "utils.h"
 
-void c_lexer_advance(c_lexer *lexer) {
+void C_LexerAdvance(C_Lexer *lexer) {
     if (lexer->current_position == lexer->source_length) {
         EXIT_WITH_ERROR(
             "Already reached the end of the source, line: %zu, columns: %zu\n",
@@ -27,25 +27,25 @@ void c_lexer_advance(c_lexer *lexer) {
     lexer->read_position++;
 }
 
-void c_lexer_start_token(c_lexer *lexer) {
+void C_LexerStartToken(C_Lexer *lexer) {
     lexer->start_line = lexer->current_line;
     lexer->start_column = lexer->current_column;
 }
 
-c_token c_lexer_create_token(c_lexer *lexer,
-                             c_token_type type,
+C_Token C_LexerCreateToken(C_Lexer *lexer,
+                             C_TokenType type,
                              char *string,
                              char symbol) {
-    c_token token = {.type = type,
+    C_Token token = {.type = type,
                      .string = string,
                      .symbol = symbol,
                      .line = lexer->start_line,
                      .column = lexer->start_column};
-    LOG_DEBUG("Created token %s\n", c_token_type_to_string(token.type));
+    LOG_DEBUG("Created token %s\n", C_TokenTypeToString(token.type));
     return token;
 }
 
-int is_whitespace(char character) {
+int C_IsWhitespace(char character) {
     switch (character) {
         case '\t':
         case '\n':
@@ -59,19 +59,19 @@ int is_whitespace(char character) {
     }
 }
 
-void c_lexer_skip_whitespaces(c_lexer *lexer) {
-    while (is_whitespace(lexer->current_char)) {
+void C_LexerSkipWhitespaces(C_Lexer *lexer) {
+    while (C_IsWhitespace(lexer->current_char)) {
         LOG_DEBUG("Skipped whitespace: %d\n", lexer->current_char);
-        c_lexer_advance(lexer);
+        C_LexerAdvance(lexer);
     }
 }
 
-c_lexer *c_lexer_create(const char *source) {
+C_Lexer *C_LexerCreate(const char *source) {
     if (!source) {
         EXIT_WITH_ERROR("Provided empty source, nothing to parse!");
     }
 
-    c_lexer *lexer = malloc(sizeof(c_lexer));
+    C_Lexer *lexer = malloc(sizeof(C_Lexer));
 
     if (!lexer) {
         EXIT_WITH_ERROR("Failed to allocate memory for lexer");
@@ -91,7 +91,7 @@ c_lexer *c_lexer_create(const char *source) {
     return lexer;
 }
 
-char *allocate_substring(const char *source,
+char *C_AllocateSubstring(const char *source,
                          size_t start_position,
                          size_t end_position) {
     assert(start_position <= end_position);
@@ -113,7 +113,7 @@ char *allocate_substring(const char *source,
     return string;
 }
 
-c_token c_lexer_lex_number(c_lexer *lexer) {
+C_Token C_LexerLexNumber(C_Lexer *lexer) {
     size_t start_position = lexer->current_position;
 
     LOG_DEBUG("Lexing number\n");
@@ -121,17 +121,17 @@ c_token c_lexer_lex_number(c_lexer *lexer) {
 
     while (isdigit(lexer->current_char)) {
         LOG_DEBUG("%c\n", lexer->current_char);
-        c_lexer_advance(lexer);
+        C_LexerAdvance(lexer);
     }
 
     size_t end_position = lexer->current_position;
     char *number =
-        allocate_substring(lexer->source, start_position, end_position);
+        C_AllocateSubstring(lexer->source, start_position, end_position);
 
-    return c_lexer_create_token(lexer, C_INTEGER_LITERAL, number, '\0');
+    return C_LexerCreateToken(lexer, C_INTEGER_LITERAL, number, '\0');
 }
 
-c_token c_lexer_lex_identifier_or_keyword(c_lexer *lexer) {
+C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
     size_t start_position = lexer->current_position;
 
     LOG_DEBUG("Lexing identifier or keyword\n");
@@ -139,14 +139,14 @@ c_token c_lexer_lex_identifier_or_keyword(c_lexer *lexer) {
 
     while (isalnum(lexer->current_char)) {
         LOG_DEBUG("%c\n", lexer->current_char);
-        c_lexer_advance(lexer);
+        C_LexerAdvance(lexer);
     }
 
     size_t end_position = lexer->current_position;
     char *word =
-        allocate_substring(lexer->source, start_position, end_position);
+        C_AllocateSubstring(lexer->source, start_position, end_position);
 
-    c_token_type type = C_IDENTIFIER;
+    C_TokenType type = C_IDENTIFIER;
     if (strcmp("int", word) == 0) {
         type = C_INTEGER;
     } else if (strcmp("void", word) == 0) {
@@ -155,100 +155,100 @@ c_token c_lexer_lex_identifier_or_keyword(c_lexer *lexer) {
         type = C_RETURN;
     }
 
-    return c_lexer_create_token(lexer, type, word, '\0');
+    return C_LexerCreateToken(lexer, type, word, '\0');
 }
 
-c_token *c_lexer_lex(c_lexer *lexer) {
+C_Token *C_LexerLex(C_Lexer *lexer) {
     LOG_DEBUG("Start parsing, current position: %zu\n",
               lexer->current_position);
 
-    c_token *tokens = NULL;
+    C_Token *tokens = NULL;
 
     while (lexer->current_position < lexer->source_length) {
-        c_lexer_skip_whitespaces(lexer);
+        C_LexerSkipWhitespaces(lexer);
 
-        c_lexer_start_token(lexer);
+        C_LexerStartToken(lexer);
 
         switch (lexer->current_char) {
             case '\0':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_EOF, NULL, lexer->current_char));
                 break;
 
             case '+':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_PLUS, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
 
             case '-':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_MINUS, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
 
             case '*':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_ASTERISK, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
 
             case '/':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_SLASH, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
 
             case '{':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_LBRACE, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
             case '}':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_RBRACE, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
             case '(':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_LPAREN, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
             case ')':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_RPAREN, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
 
             case ';':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_SEMICOLON, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
             case '=':
                 arrput(tokens,
-                       c_lexer_create_token(
+                       C_LexerCreateToken(
                            lexer, C_ASSIGN, NULL, lexer->current_char));
-                c_lexer_advance(lexer);
+                C_LexerAdvance(lexer);
                 break;
             default: {
                 if (isdigit(lexer->current_char)) {
-                    arrput(tokens, c_lexer_lex_number(lexer));
+                    arrput(tokens, C_LexerLexNumber(lexer));
                     continue;
                 }
 
                 if (isalpha(lexer->current_char)) {
-                    arrput(tokens, c_lexer_lex_identifier_or_keyword(lexer));
+                    arrput(tokens, C_LexerLexIdentifierOrKeyword(lexer));
                     continue;
                 }
 
@@ -266,12 +266,12 @@ c_token *c_lexer_lex(c_lexer *lexer) {
     return tokens;
 }
 
-void c_lexer_free(c_lexer *lexer) {
+void C_LexerFree(C_Lexer *lexer) {
     free(lexer);
     lexer = NULL;
 }
 
-void c_lexer_free_tokens(c_token *tokens) {
+void C_LexerFreeTokens(C_Token *tokens) {
     if (tokens == NULL) {
         return;
     }
@@ -287,7 +287,7 @@ void c_lexer_free_tokens(c_token *tokens) {
     tokens = NULL;
 }
 
-const char *c_token_type_to_string(c_token_type type) {
+const char *C_TokenTypeToString(C_TokenType type) {
     switch (type) {
         case C_IDENTIFIER:
             return "C_IDENTIFIER";

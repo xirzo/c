@@ -13,34 +13,34 @@ void test_parse_function_declaration(void) {
         "   return 0;"
         "}";
 
-    c_error_context *error_context = c_error_context_create();
+    C_ErrorContext *error_context = C_ErrorContextCreate();
 
     if (!error_context) {
         fprintf(stderr, "Failed to allocate memory for error_context\n");
         return;
     }
 
-    c_lexer *lexer = c_lexer_create(source);
-    c_token *tokens = c_lexer_lex(lexer);
-    c_parser *parser =
-        c_parser_create(tokens, error_context, "test_filename.c");
+    C_Lexer *lexer = C_LexerCreate(source);
+    C_Token *tokens = C_LexerLex(lexer);
+    C_Parser *parser =
+        C_ParserCreate(tokens, error_context, "test_filename.c");
 
-    c_ast_function_declaration *func =
-        c_parser_parse_function_declaration(parser);
+    C_AstFunctionDeclaration *func =
+        C_ParserParseFunctionDeclaration(parser);
 
     TEST_ASSERT_NOT_NULL(func);
     TEST_ASSERT_EQUAL_STRING("main", func->function_name);
     TEST_ASSERT_NOT_NULL(func->body);
     TEST_ASSERT_EQUAL(1, arrlen(func->body->statements));
 
-    c_ast_statement *stmt = func->body->statements[0];
+    C_AstStatement *stmt = func->body->statements[0];
     TEST_ASSERT_EQUAL(C_STATEMENT_RETURN, stmt->type);
     TEST_ASSERT_NOT_NULL(stmt->return_statement);
     TEST_ASSERT_EQUAL(0, stmt->return_statement->value->constant->value);
 
-    c_ast_free_function_declaration(func);
-    c_parser_free(parser);
-    c_lexer_free(lexer);
+    C_AstFreeFunctionDeclaration(func);
+    C_ParserFree(parser);
+    C_LexerFree(lexer);
 }
 
 int main(void) {

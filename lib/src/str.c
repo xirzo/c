@@ -14,7 +14,7 @@ char *strdup(const char *str) {
     return copy;
 }
 
-char *read_file_to_buffer(const char *filename) {
+char *C_ReadFileToBuffer(const char *filename) {
     FILE *file = fopen(filename, "r");
 
     if (!file) {

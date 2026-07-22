@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-c_error_context *c_error_context_create(void) {
-    c_error_context *context = malloc(sizeof(c_error_context));
+C_ErrorContext *C_ErrorContextCreate(void) {
+    C_ErrorContext *context = malloc(sizeof(C_ErrorContext));
 
     if (!context) {
         return NULL;
@@ -17,7 +17,7 @@ c_error_context *c_error_context_create(void) {
     return context;
 }
 
-void c_error_context_free(c_error_context *ctx) {
+void C_ErrorContextFree(C_ErrorContext *ctx) {
     if (!ctx) {
         return;
     }
@@ -30,16 +30,16 @@ void c_error_context_free(c_error_context *ctx) {
     free(ctx);
 }
 
-void c_error_report(c_error_context *ctx,
+void C_ErrorReport(C_ErrorContext *ctx,
                     const char *message,
                     const char *filename,
                     int line,
                     int column) {
     size_t old_length = arrlenu(ctx->errors);
 
-    arrput(ctx->errors, (c_error){0});
+    arrput(ctx->errors, (C_Error){0});
 
-    c_error *error = &ctx->errors[old_length];
+    C_Error *error = &ctx->errors[old_length];
 
     error->message = strdup(message);
 
@@ -54,15 +54,15 @@ void c_error_report(c_error_context *ctx,
     error->column = column;
 }
 
-void c_error_report_with_token(c_error_context *ctx,
+void C_ErrorReportWithToken(C_ErrorContext *ctx,
                                const char *message,
-                               c_token token,
+                               C_Token token,
                                const char *filename) {
     size_t old_length = arrlenu(ctx->errors);
 
-    arrput(ctx->errors, (c_error){0});
+    arrput(ctx->errors, (C_Error){0});
 
-    c_error *error = &ctx->errors[old_length];
+    C_Error *error = &ctx->errors[old_length];
 
     error->message = strdup(message);
 
@@ -78,10 +78,10 @@ void c_error_report_with_token(c_error_context *ctx,
     error->column = token.column;
 }
 
-void c_error_context_print(c_error_context *ctx, FILE *output) {
+void C_ErrorContextPrint(C_ErrorContext *ctx, FILE *output) {
     // NOTE: maybe add lines printing later with caret
     for (int i = 0; i < arrlen(ctx->errors); i++) {
-        c_error *error = &ctx->errors[i];
+        C_Error *error = &ctx->errors[i];
 
         fprintf(output,
                 "%s:%d:%d: error: %s\n",
@@ -92,6 +92,6 @@ void c_error_context_print(c_error_context *ctx, FILE *output) {
     }
 }
 
-int c_error_context_has_errors(c_error_context *ctx) {
+int C_ErrorContextHasErrors(C_ErrorContext *ctx) {
     return arrlen(ctx->errors) > 0;
 }

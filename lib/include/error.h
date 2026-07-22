@@ -9,29 +9,29 @@ typedef struct {
     const char *filename;
     int line;
     int column;
-    c_token token;
-} c_error;
+    C_Token token;
+} C_Error;
 
 typedef struct {
-    c_error *errors;
-} c_error_context;
+    C_Error *errors;
+} C_ErrorContext;
 
-c_error_context *c_error_context_create(void);
-void c_error_context_free(c_error_context *ctx);
+C_ErrorContext *C_ErrorContextCreate(void);
+void C_ErrorContextFree(C_ErrorContext *ctx);
 
-void c_error_report(c_error_context *ctx,
+void C_ErrorReport(C_ErrorContext *ctx,
                     const char *message,
                     const char *filename,
                     int line,
                     int column);
 
-void c_error_report_with_token(c_error_context *ctx,
+void C_ErrorReportWithToken(C_ErrorContext *ctx,
                                const char *message,
-                               c_token token,
+                               C_Token token,
                                const char *filename);
 
-void c_error_context_print(c_error_context *ctx, FILE *output);
+void C_ErrorContextPrint(C_ErrorContext *ctx, FILE *output);
 
-int c_error_context_has_errors(c_error_context *ctx);
+int C_ErrorContextHasErrors(C_ErrorContext *ctx);
 
 #endif  // !ERROR_H

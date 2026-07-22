@@ -7,8 +7,8 @@ void tearDown(void) {}
 
 void test_lex_numbers(void) {
     const char source[1024] = "1 12 123";
-    c_lexer *lexer = c_lexer_create(source);
-    c_token *tokens = c_lexer_lex(lexer);
+    C_Lexer *lexer = C_LexerCreate(source);
+    C_Token *tokens = C_LexerLex(lexer);
 
     TEST_ASSERT_EQUAL_STRING("1", tokens[0].string);
     TEST_ASSERT_EQUAL(C_INTEGER_LITERAL, tokens[0].type);
@@ -17,8 +17,8 @@ void test_lex_numbers(void) {
     TEST_ASSERT_EQUAL_STRING("123", tokens[2].string);
     TEST_ASSERT_EQUAL(C_INTEGER_LITERAL, tokens[2].type);
 
-    c_lexer_free(lexer);
-    c_lexer_free_tokens(tokens);
+    C_LexerFree(lexer);
+    C_LexerFreeTokens(tokens);
 }
 
 void test_default_main(void) {
@@ -26,8 +26,8 @@ void test_default_main(void) {
         "int main() {"
         "   return 0;"
         "}";
-    c_lexer *lexer = c_lexer_create(source);
-    c_token *tokens = c_lexer_lex(lexer);
+    C_Lexer *lexer = C_LexerCreate(source);
+    C_Token *tokens = C_LexerLex(lexer);
 
     TEST_ASSERT_EQUAL(C_INTEGER, tokens[0].type);
     TEST_ASSERT_EQUAL(C_IDENTIFIER, tokens[1].type);
@@ -41,8 +41,8 @@ void test_default_main(void) {
     TEST_ASSERT_EQUAL(C_SEMICOLON, tokens[7].type);
     TEST_ASSERT_EQUAL(C_RBRACE, tokens[8].type);
 
-    c_lexer_free(lexer);
-    c_lexer_free_tokens(tokens);
+    C_LexerFree(lexer);
+    C_LexerFreeTokens(tokens);
 }
 
 int main(void) {

@@ -9,15 +9,15 @@
 #include "stb_ds.h"
 #include "str.h"
 
-c_parser *c_parser_create(c_token *tokens,
-                          c_error_context *error_context,
+C_Parser *C_ParserCreate(C_Token *tokens,
+                          C_ErrorContext *error_context,
                           const char *filename) {
     if (arrlen(tokens) == 0) {
-        c_error_report(error_context, "Got empty token list", filename, 1, 1);
+        C_ErrorReport(error_context, "Got empty token list", filename, 1, 1);
         return NULL;
     }
 
-    c_parser *parser = malloc(sizeof(c_parser));
+    C_Parser *parser = malloc(sizeof(C_Parser));
 
     parser->current_position = 0;
     parser->read_position = 1;
@@ -29,7 +29,7 @@ c_parser *c_parser_create(c_token *tokens,
     return parser;
 }
 
-void c_parser_advance(c_parser *parser) {
+void C_ParserAdvance(C_Parser *parser) {
     size_t tokens_len = arrlenu(parser->tokens);
 
     if (parser->read_position >= tokens_len) {
@@ -43,11 +43,11 @@ void c_parser_advance(c_parser *parser) {
     parser->read_position++;
 }
 
-c_token c_parser_peek(c_parser *parser) {
+C_Token C_ParserPeek(C_Parser *parser) {
     size_t tokens_len = arrlenu(parser->tokens);
 
     if (parser->read_position >= tokens_len) {
-        c_token eof_token = {0};
+        C_Token eof_token = {0};
         eof_token.type = C_EOF;
         return eof_token;
     }
@@ -55,11 +55,11 @@ c_token c_parser_peek(c_parser *parser) {
     return parser->tokens[parser->read_position];
 }
 
-c_token c_parser_peek_ahead(c_parser *parser) {
+C_Token C_ParserPeekAhead(C_Parser *parser) {
     size_t tokens_len = arrlenu(parser->tokens);
 
     if (parser->read_position + 1 >= tokens_len) {
-        c_token eof_token = {0};
+        C_Token eof_token = {0};
         eof_token.type = C_EOF;
         return eof_token;
     }
@@ -67,22 +67,22 @@ c_token c_parser_peek_ahead(c_parser *parser) {
     return parser->tokens[parser->read_position + 1];
 }
 
-c_ast_constant *c_parser_parse_constant(c_parser *parser) {
-    c_ast_constant *constant = malloc(sizeof(c_ast_constant));
+C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
+    C_AstConstant *constant = malloc(sizeof(C_AstConstant));
     constant->value = atoi(parser->current_token.string);
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
     return constant;
 }
 
-c_ast_function_call *c_parser_parse_function_call(c_parser *parser) {
-    c_ast_function_call *function_call = malloc(sizeof(c_ast_function_call));
+C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser) {
+    C_AstFunctionCall *function_call = malloc(sizeof(C_AstFunctionCall));
     function_call->function_name = strdup(parser->current_token.string);
 
     LOG_DEBUG("Parsing function call\n");
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     if (parser->current_token.type != C_LPAREN) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected '(' after function name",
                                   parser->current_token,
                                   parser->filename);
@@ -91,10 +91,10 @@ c_ast_function_call *c_parser_parse_function_call(c_parser *parser) {
         return NULL;
     }
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     if (parser->current_token.type != C_RPAREN) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected ')' after function call",
                                   parser->current_token,
                                   parser->filename);
@@ -103,21 +103,21 @@ c_ast_function_call *c_parser_parse_function_call(c_parser *parser) {
         return NULL;
     }
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
     return function_call;
 }
 
-c_ast_statement *c_parser_parse_statement(c_parser *parser) {
-    c_ast_statement *statement = malloc(sizeof(c_ast_statement));
+C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
+    C_AstStatement *statement = malloc(sizeof(C_AstStatement));
 
     LOG_DEBUG("Parsing statement\n");
 
     switch (parser->current_token.type) {
         case C_INTEGER:
-            if (c_parser_peek_ahead(parser).type == C_LPAREN) {
+            if (C_ParserPeekAhead(parser).type == C_LPAREN) {
                 statement->type = C_STATEMENT_FUNCTION_DECLARATION;
                 statement->function_declaration =
-                    c_parser_parse_function_declaration(parser);
+                    C_ParserParseFunctionDeclaration(parser);
                 if (!statement->function_declaration) {
                     free(statement);
                     return NULL;
@@ -126,7 +126,7 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
             }
 
             statement->type = C_STATEMENT_ASSIGNMENT;
-            statement->assignment = c_parser_parse_variable_assignment(parser);
+            statement->assignment = C_ParserParseVariableAssignment(parser);
             if (!statement->assignment) {
                 free(statement);
                 return NULL;
@@ -134,7 +134,7 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
             break;
         case C_LBRACE:
             statement->type = C_STATEMENT_BLOCK;
-            statement->block = c_parser_parse_block(parser);
+            statement->block = C_ParserParseBlock(parser);
             if (!statement->block) {
                 free(statement);
                 return NULL;
@@ -142,7 +142,7 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
             break;
         case C_RETURN:
             statement->type = C_STATEMENT_RETURN;
-            statement->return_statement = c_parser_parse_return(parser);
+            statement->return_statement = C_ParserParseReturn(parser);
             if (!statement->return_statement) {
                 free(statement);
                 return NULL;
@@ -150,42 +150,42 @@ c_ast_statement *c_parser_parse_statement(c_parser *parser) {
             break;
         case C_SEMICOLON:
             statement->type = C_STATEMENT_NOOP;
-            c_parser_advance(parser);
+            C_ParserAdvance(parser);
             break;
         default:
             statement->type = C_STATEMENT_EXPRESSION;
-            statement->expression = c_parser_parse_expression(parser);
+            statement->expression = C_ParserParseExpression(parser);
             if (!statement->expression) {
                 free(statement);
                 return NULL;
             }
 
             if (parser->current_token.type != C_SEMICOLON) {
-                c_error_report_with_token(parser->error_context,
+                C_ErrorReportWithToken(parser->error_context,
                                           "Expected ';' after expression",
                                           parser->current_token,
                                           parser->filename);
-                c_ast_free_expression(statement->expression);
+                C_AstFreeExpression(statement->expression);
                 free(statement);
                 return NULL;
             }
-            c_parser_advance(parser);
+            C_ParserAdvance(parser);
             break;
     }
 
     return statement;
 }
 
-c_ast_variable_assignment *c_parser_parse_variable_assignment(
-    c_parser *parser) {
+C_AstVariableAssignment *C_ParserParseVariableAssignment(
+    C_Parser *parser) {
     LOG_DEBUG("Parsing variable assignment\n");
-    c_ast_variable_assignment *assignment =
-        malloc(sizeof(c_ast_variable_assignment));
+    C_AstVariableAssignment *assignment =
+        malloc(sizeof(C_AstVariableAssignment));
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     if (parser->current_token.type != C_IDENTIFIER) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected identifier after type",
                                   parser->current_token,
                                   parser->filename);
@@ -195,10 +195,10 @@ c_ast_variable_assignment *c_parser_parse_variable_assignment(
 
     assignment->variable_name = strdup(parser->current_token.string);
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     if (parser->current_token.type != C_ASSIGN) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected '=' after variable name",
                                   parser->current_token,
                                   parser->filename);
@@ -207,9 +207,9 @@ c_ast_variable_assignment *c_parser_parse_variable_assignment(
         return NULL;
     }
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
-    assignment->expression = c_parser_parse_expression(parser);
+    assignment->expression = C_ParserParseExpression(parser);
     if (!assignment->expression) {
         free(assignment->variable_name);
         free(assignment);
@@ -217,55 +217,55 @@ c_ast_variable_assignment *c_parser_parse_variable_assignment(
     }
 
     if (parser->current_token.type != C_SEMICOLON) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected ';' after assignment",
                                   parser->current_token,
                                   parser->filename);
         free(assignment->variable_name);
-        c_ast_free_expression(assignment->expression);
+        C_AstFreeExpression(assignment->expression);
         free(assignment);
         return NULL;
     }
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     return assignment;
 }
 
-c_ast_expression *c_parser_parse_expression(c_parser *parser) {
-    return c_parser_parse_expression_with_precedence(parser, 0);
+C_AstExpression *C_ParserParseExpression(C_Parser *parser) {
+    return C_ParserParseExpressionWithPrecedence(parser, 0);
 }
 
-c_infix_binding_power c_get_infix_binding_power(c_token_type token_type) {
+C_InfixBindingPower C_GetInfixBindingPower(C_TokenType token_type) {
     switch (token_type) {
         case C_PLUS:
         case C_MINUS:
-            return (c_infix_binding_power){.left = 1, .right = 2};
+            return (C_InfixBindingPower){.left = 1, .right = 2};
         case C_ASTERISK:
         case C_SLASH:
-            return (c_infix_binding_power){.left = 3, .right = 4};
+            return (C_InfixBindingPower){.left = 3, .right = 4};
         default:
-            return (c_infix_binding_power){.left = 0, .right = 0};
+            return (C_InfixBindingPower){.left = 0, .right = 0};
     }
 }
 
-c_ast_expression *c_parser_parse_expression_with_precedence(
-    c_parser *parser,
+C_AstExpression *C_ParserParseExpressionWithPrecedence(
+    C_Parser *parser,
     double min_binding_power) {
     LOG_DEBUG("Parsing expression (Pratt Parsing)\n");
 
-    c_ast_expression *lhs = malloc(sizeof(c_ast_expression));
+    C_AstExpression *lhs = malloc(sizeof(C_AstExpression));
 
     switch (parser->current_token.type) {
         case C_INTEGER_LITERAL: {
             lhs->type = C_CONSTANT;
-            lhs->constant = c_parser_parse_constant(parser);
+            lhs->constant = C_ParserParseConstant(parser);
             break;
         }
 
         case C_IDENTIFIER: {
-            if (c_parser_peek(parser).type == C_LPAREN) {
+            if (C_ParserPeek(parser).type == C_LPAREN) {
                 lhs->type = C_FUNCTION_CALL;
-                lhs->function_call = c_parser_parse_function_call(parser);
+                lhs->function_call = C_ParserParseFunctionCall(parser);
                 if (!lhs->function_call) {
                     free(lhs);
                     return NULL;
@@ -274,12 +274,12 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
             }
 
             lhs->type = C_VARIABLE;
-            lhs->variable = c_parser_parse_variable(parser);
+            lhs->variable = C_ParserParseVariable(parser);
             break;
         }
 
         default:
-            c_error_report_with_token(parser->error_context,
+            C_ErrorReportWithToken(parser->error_context,
                                       "Expected expression",
                                       parser->current_token,
                                       parser->filename);
@@ -288,7 +288,7 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
     }
 
     while (1) {
-        c_token_type operator_type = parser->current_token.type;
+        C_TokenType operator_type = parser->current_token.type;
 
         switch (operator_type) {
             case C_PLUS:
@@ -302,24 +302,24 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
                 return lhs;
         }
 
-        c_infix_binding_power power = c_get_infix_binding_power(operator_type);
+        C_InfixBindingPower power = C_GetInfixBindingPower(operator_type);
 
         if (power.left < min_binding_power) {
             break;
         }
 
-        c_parser_advance(parser);
+        C_ParserAdvance(parser);
 
-        c_ast_expression *rhs =
-            c_parser_parse_expression_with_precedence(parser, power.right);
+        C_AstExpression *rhs =
+            C_ParserParseExpressionWithPrecedence(parser, power.right);
         if (!rhs) {
-            c_ast_free_expression(lhs);
+            C_AstFreeExpression(lhs);
             return NULL;
         }
 
-        c_ast_expression *binary_expr = malloc(sizeof(c_ast_expression));
+        C_AstExpression *binary_expr = malloc(sizeof(C_AstExpression));
         binary_expr->type = C_BINARY_EXPRESSION;
-        binary_expr->binary = malloc(sizeof(c_ast_binary_expression));
+        binary_expr->binary = malloc(sizeof(C_AstBinaryExpression));
 
         switch (operator_type) {
             case C_PLUS:
@@ -347,13 +347,13 @@ c_ast_expression *c_parser_parse_expression_with_precedence(
     return lhs;
 }
 
-c_ast_variable *c_parser_parse_variable(c_parser *parser) {
-    c_ast_variable *variable = malloc(sizeof(c_ast_variable));
+C_AstVariable *C_ParserParseVariable(C_Parser *parser) {
+    C_AstVariable *variable = malloc(sizeof(C_AstVariable));
 
     LOG_DEBUG("Parsing variable\n");
 
     if (parser->current_token.type != C_IDENTIFIER) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected identifier",
                                   parser->current_token,
                                   parser->filename);
@@ -362,18 +362,18 @@ c_ast_variable *c_parser_parse_variable(c_parser *parser) {
     }
 
     variable->name = strdup(parser->current_token.string);
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     return variable;
 }
 
-c_ast_return *c_parser_parse_return(c_parser *parser) {
-    c_ast_return *return_statement = malloc(sizeof(c_ast_return));
+C_AstReturn *C_ParserParseReturn(C_Parser *parser) {
+    C_AstReturn *return_statement = malloc(sizeof(C_AstReturn));
 
     LOG_DEBUG("Parsing return\n");
 
     if (parser->current_token.type != C_RETURN) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected 'return' keyword",
                                   parser->current_token,
                                   parser->filename);
@@ -381,36 +381,36 @@ c_ast_return *c_parser_parse_return(c_parser *parser) {
         return NULL;
     }
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
-    return_statement->value = c_parser_parse_expression(parser);
+    return_statement->value = C_ParserParseExpression(parser);
     if (!return_statement->value) {
         free(return_statement);
         return NULL;
     }
 
     if (parser->current_token.type != C_SEMICOLON) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected ';' after return statement",
                                   parser->current_token,
                                   parser->filename);
-        c_ast_free_expression(return_statement->value);
+        C_AstFreeExpression(return_statement->value);
         free(return_statement);
         return NULL;
     }
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     return return_statement;
 }
 
-c_ast_block *c_parser_parse_block(c_parser *parser) {
-    c_ast_block *block = malloc(sizeof(c_ast_block));
+C_AstBlock *C_ParserParseBlock(C_Parser *parser) {
+    C_AstBlock *block = malloc(sizeof(C_AstBlock));
     block->statements = NULL;
 
     LOG_DEBUG("Parsing block\n");
 
     if (parser->current_token.type != C_LBRACE) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected '{' to start block",
                                   parser->current_token,
                                   parser->filename);
@@ -418,41 +418,41 @@ c_ast_block *c_parser_parse_block(c_parser *parser) {
         return NULL;
     }
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     while (parser->current_token.type != C_RBRACE
            && parser->current_token.type != C_EOF) {
-        c_ast_statement *statement = c_parser_parse_statement(parser);
+        C_AstStatement *statement = C_ParserParseStatement(parser);
         if (statement) {
             arrput(block->statements, statement);
         } else {
-            c_parser_synchronize(parser);
+            C_ParserSynchronize(parser);
         }
     }
 
     if (parser->current_token.type != C_RBRACE) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected '}' to end block",
                                   parser->current_token,
                                   parser->filename);
     } else {
-        c_parser_advance(parser);
+        C_ParserAdvance(parser);
     }
 
     return block;
 }
 
-c_ast_function_declaration *c_parser_parse_function_declaration(
-    c_parser *parser) {
+C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(
+    C_Parser *parser) {
     LOG_DEBUG("Parsing function declaration\n");
-    c_ast_function_declaration *function_declaration =
-        malloc(sizeof(c_ast_function_declaration));
+    C_AstFunctionDeclaration *function_declaration =
+        malloc(sizeof(C_AstFunctionDeclaration));
     function_declaration->body = NULL;
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     if (parser->current_token.type != C_IDENTIFIER) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected function name after type",
                                   parser->current_token,
                                   parser->filename);
@@ -462,10 +462,10 @@ c_ast_function_declaration *c_parser_parse_function_declaration(
 
     function_declaration->function_name = strdup(parser->current_token.string);
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     if (parser->current_token.type != C_LPAREN) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected '(' after function name",
                                   parser->current_token,
                                   parser->filename);
@@ -474,10 +474,10 @@ c_ast_function_declaration *c_parser_parse_function_declaration(
         return NULL;
     }
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
     if (parser->current_token.type != C_RPAREN) {
-        c_error_report_with_token(parser->error_context,
+        C_ErrorReportWithToken(parser->error_context,
                                   "Expected ')' after function parameters",
                                   parser->current_token,
                                   parser->filename);
@@ -486,9 +486,9 @@ c_ast_function_declaration *c_parser_parse_function_declaration(
         return NULL;
     }
 
-    c_parser_advance(parser);
+    C_ParserAdvance(parser);
 
-    function_declaration->body = c_parser_parse_block(parser);
+    function_declaration->body = C_ParserParseBlock(parser);
     if (!function_declaration->body) {
         free(function_declaration->function_name);
         free(function_declaration);
@@ -498,30 +498,30 @@ c_ast_function_declaration *c_parser_parse_function_declaration(
     return function_declaration;
 }
 
-c_ast_program *c_parser_parse(c_parser *parser) {
-    c_ast_program *program = malloc(sizeof(c_ast_program));
+C_AstProgram *C_ParserParse(C_Parser *parser) {
+    C_AstProgram *program = malloc(sizeof(C_AstProgram));
     program->function_declarations = NULL;
 
     while (parser->current_token.type != C_EOF) {
         switch (parser->current_token.type) {
             case C_INTEGER: {
-                c_ast_function_declaration *decl =
-                    c_parser_parse_function_declaration(parser);
+                C_AstFunctionDeclaration *decl =
+                    C_ParserParseFunctionDeclaration(parser);
                 if (decl) {
                     arrput(program->function_declarations, decl);
                 } else {
-                    c_parser_synchronize_to_declaration(parser);
+                    C_ParserSynchronizeToDeclaration(parser);
                 }
             } break;
             case C_EOF:
                 goto done_parsing;
             default:
-                c_error_report_with_token(
+                C_ErrorReportWithToken(
                     parser->error_context,
                     "Unexpected token - expected function declaration",
                     parser->current_token,
                     parser->filename);
-                c_parser_advance(parser);
+                C_ParserAdvance(parser);
                 break;
         }
     }
@@ -530,7 +530,7 @@ done_parsing:
     return program;
 }
 
-void c_parser_synchronize(c_parser *parser) {
+void C_ParserSynchronize(C_Parser *parser) {
     while (parser->current_token.type != C_EOF) {
         switch (parser->current_token.type) {
             case C_SEMICOLON:
@@ -540,34 +540,34 @@ void c_parser_synchronize(c_parser *parser) {
             case C_INTEGER:
                 return;
             default:
-                c_parser_advance(parser);
+                C_ParserAdvance(parser);
                 break;
         }
     }
 }
 
-void c_parser_synchronize_to_declaration(c_parser *parser) {
+void C_ParserSynchronizeToDeclaration(C_Parser *parser) {
     while (parser->current_token.type != C_EOF) {
         if (parser->current_token.type == C_INTEGER
-            && c_parser_peek(parser).type == C_IDENTIFIER
-            && c_parser_peek_ahead(parser).type == C_LPAREN) {
+            && C_ParserPeek(parser).type == C_IDENTIFIER
+            && C_ParserPeekAhead(parser).type == C_LPAREN) {
             return;
         }
 
-        c_parser_advance(parser);
+        C_ParserAdvance(parser);
     }
 }
 
-void c_parser_free(c_parser *parser) {
+void C_ParserFree(C_Parser *parser) {
     if (!parser) {
         return;
     }
 
-    c_lexer_free_tokens(parser->tokens);
+    C_LexerFreeTokens(parser->tokens);
     free(parser);
 }
 
-void c_ast_free_expression(c_ast_expression *expression) {
+void C_AstFreeExpression(C_AstExpression *expression) {
     if (!expression) {
         return;
     }
@@ -581,12 +581,12 @@ void c_ast_free_expression(c_ast_expression *expression) {
             free(expression->function_call);
             break;
         case C_BINARY_EXPRESSION:
-            c_ast_free_expression(expression->binary->lhs);
-            c_ast_free_expression(expression->binary->rhs);
+            C_AstFreeExpression(expression->binary->lhs);
+            C_AstFreeExpression(expression->binary->rhs);
             free(expression->binary);
             break;
         case C_VARIABLE:
-            c_ast_free_variable(expression->variable);
+            C_AstFreeVariable(expression->variable);
             break;
         default:
             EXIT_WITH_ERROR("Got unknown expression to free: %d\n",
@@ -596,78 +596,78 @@ void c_ast_free_expression(c_ast_expression *expression) {
     free(expression);
 }
 
-void c_ast_free_block(c_ast_block *block) {
+void C_AstFreeBlock(C_AstBlock *block) {
     if (!block) {
         return;
     }
 
     for (int i = 0; i < arrlen(block->statements); i++) {
-        c_ast_free_statement(block->statements[i]);
+        C_AstFreeStatement(block->statements[i]);
     }
 
     arrfree(block->statements);
     free(block);
 }
 
-void c_ast_free_return(c_ast_return *ret) {
+void C_AstFreeReturn(C_AstReturn *ret) {
     if (!ret) {
         return;
     }
 
-    c_ast_free_expression(ret->value);
+    C_AstFreeExpression(ret->value);
     free(ret);
 }
 
-void c_ast_free_variable_assignment(c_ast_variable_assignment *assignment) {
+void C_AstFreeVariableAssignment(C_AstVariableAssignment *assignment) {
     if (!assignment) {
         return;
     }
 
     free(assignment->variable_name);
     if (assignment->expression) {
-        c_ast_free_expression(assignment->expression);
+        C_AstFreeExpression(assignment->expression);
     }
     free(assignment);
 }
 
-void c_ast_free_function_declaration(c_ast_function_declaration *declaration) {
+void C_AstFreeFunctionDeclaration(C_AstFunctionDeclaration *declaration) {
     if (!declaration) {
         return;
     }
 
     free(declaration->function_name);
-    c_ast_free_block(declaration->body);
+    C_AstFreeBlock(declaration->body);
     free(declaration);
 }
 
-void c_ast_free_expression_statement(c_ast_expression *expression) {
+void C_AstFreeExpressionStatement(C_AstExpression *expression) {
     if (!expression) {
         return;
     }
 
-    c_ast_free_expression(expression);
+    C_AstFreeExpression(expression);
 }
 
-void c_ast_free_statement(c_ast_statement *statement) {
+void C_AstFreeStatement(C_AstStatement *statement) {
     if (!statement) {
         return;
     }
 
     switch (statement->type) {
         case C_STATEMENT_BLOCK:
-            c_ast_free_block(statement->block);
+            C_AstFreeBlock(statement->block);
             break;
         case C_STATEMENT_RETURN:
-            c_ast_free_return(statement->return_statement);
+            C_AstFreeReturn(statement->return_statement);
             break;
         case C_STATEMENT_FUNCTION_DECLARATION:
-            c_ast_free_function_declaration(statement->function_declaration);
+            C_AstFreeFunctionDeclaration(statement->function_declaration);
             break;
         case C_STATEMENT_EXPRESSION:
-            c_ast_free_expression_statement(statement->expression);
+            C_AstFreeExpressionStatement(statement->expression);
             break;
         case C_STATEMENT_ASSIGNMENT:
-            c_ast_free_variable_assignment(statement->assignment);
+            C_AstFreeVariableAssignment(statement->assignment);
             break;
         case C_STATEMENT_NOOP:
             break;
@@ -679,14 +679,14 @@ void c_ast_free_statement(c_ast_statement *statement) {
     free(statement);
 }
 
-void c_parser_free_program(c_ast_program *program) {
+void C_ParserFreeProgram(C_AstProgram *program) {
     if (!program) {
         return;
     }
 
     if (program->function_declarations) {
         for (int i = 0; i < arrlen(program->function_declarations); i++) {
-            c_ast_free_function_declaration(program->function_declarations[i]);
+            C_AstFreeFunctionDeclaration(program->function_declarations[i]);
         }
 
         arrfree(program->function_declarations);
@@ -695,7 +695,7 @@ void c_parser_free_program(c_ast_program *program) {
     free(program);
 }
 
-void c_ast_free_variable(c_ast_variable *variable) {
+void C_AstFreeVariable(C_AstVariable *variable) {
     if (!variable) {
         return;
     }

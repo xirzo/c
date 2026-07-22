@@ -4,8 +4,8 @@
 #include "error.h"
 #include "lexer.h"
 
-typedef struct c_ast_expression c_ast_expression;
-typedef struct c_ast_statement c_ast_statement;
+typedef struct C_AstExpression C_AstExpression;
+typedef struct C_AstStatement C_AstStatement;
 
 typedef enum {
     // NOTE: maybe should separate
@@ -14,37 +14,37 @@ typedef enum {
     C_FUNCTION_CALL,
     C_VARIABLE,
     C_BINARY_EXPRESSION,
-} c_ast_expression_type;
+} C_AstExpressionType;
 
 typedef struct {
     // NOTE: for now only int
     int value;
-} c_ast_constant;
+} C_AstConstant;
 
 typedef struct {
     char *function_name;
-} c_ast_function_call;
+} C_AstFunctionCall;
 
 typedef struct {
     char *name;
-} c_ast_variable;
+} C_AstVariable;
 
 typedef struct {
     char symbol;
-    c_ast_expression *lhs;
-    c_ast_expression *rhs;
-} c_ast_binary_expression;
+    C_AstExpression *lhs;
+    C_AstExpression *rhs;
+} C_AstBinaryExpression;
 
-typedef struct c_ast_expression {
-    c_ast_expression_type type;
+typedef struct C_AstExpression {
+    C_AstExpressionType type;
 
     union {
-        c_ast_constant *constant;
-        c_ast_function_call *function_call;
-        c_ast_variable *variable;
-        c_ast_binary_expression *binary;
+        C_AstConstant *constant;
+        C_AstFunctionCall *function_call;
+        C_AstVariable *variable;
+        C_AstBinaryExpression *binary;
     };
-} c_ast_expression;
+} C_AstExpression;
 
 typedef enum {
     C_STATEMENT_BLOCK,
@@ -53,91 +53,91 @@ typedef enum {
     C_STATEMENT_EXPRESSION,
     C_STATEMENT_ASSIGNMENT,
     C_STATEMENT_NOOP,
-} c_ast_statement_type;
+} C_AstStatementType;
 
 typedef struct {
-    c_ast_statement **statements;
-} c_ast_block;
+    C_AstStatement **statements;
+} C_AstBlock;
 
 typedef struct {
-    c_ast_expression *value;
-} c_ast_return;
+    C_AstExpression *value;
+} C_AstReturn;
 
 typedef struct {
     char *function_name;
-    c_ast_block *body;
-} c_ast_function_declaration;
+    C_AstBlock *body;
+} C_AstFunctionDeclaration;
 
 typedef struct {
     char *variable_name;
-    c_ast_expression *expression;
-} c_ast_variable_assignment;
+    C_AstExpression *expression;
+} C_AstVariableAssignment;
 
-typedef struct c_ast_statement {
-    c_ast_statement_type type;
+typedef struct C_AstStatement {
+    C_AstStatementType type;
 
     union {
-        c_ast_block *block;
-        c_ast_return *return_statement;
-        c_ast_function_declaration *function_declaration;
-        c_ast_expression *expression;
-        c_ast_variable_assignment *assignment;
+        C_AstBlock *block;
+        C_AstReturn *return_statement;
+        C_AstFunctionDeclaration *function_declaration;
+        C_AstExpression *expression;
+        C_AstVariableAssignment *assignment;
     };
-} c_ast_statement;
+} C_AstStatement;
 
 typedef struct {
-    c_ast_function_declaration **function_declarations;
-} c_ast_program;
+    C_AstFunctionDeclaration **function_declarations;
+} C_AstProgram;
 
 typedef struct {
     double left;
     double right;
-} c_infix_binding_power;
+} C_InfixBindingPower;
 
 typedef struct {
-    c_error_context *error_context;
+    C_ErrorContext *error_context;
     const char *filename;
-    c_token *tokens;
-    c_token current_token;
+    C_Token *tokens;
+    C_Token current_token;
     size_t current_position;
     size_t read_position;
-} c_parser;
+} C_Parser;
 
-c_parser *c_parser_create(c_token *tokens,
-                          c_error_context *error_context,
+C_Parser *C_ParserCreate(C_Token *tokens,
+                          C_ErrorContext *error_context,
                           const char *filename);
-c_ast_program *c_parser_parse(c_parser *parser);
-void c_parser_free(c_parser *parser);
-void c_parser_free_program(c_ast_program *program);
+C_AstProgram *C_ParserParse(C_Parser *parser);
+void C_ParserFree(C_Parser *parser);
+void C_ParserFreeProgram(C_AstProgram *program);
 
 // NOTE: in fact not a part of public api, but can be used
-void c_parser_advance(c_parser *parser);
-c_token c_parser_peek(c_parser *parser);
+void C_ParserAdvance(C_Parser *parser);
+C_Token C_ParserPeek(C_Parser *parser);
 
-c_ast_statement *c_parser_parse_statement(c_parser *parser);
-c_ast_variable_assignment *c_parser_parse_variable_assignment(c_parser *parser);
-c_infix_binding_power c_get_infix_binding_power(c_token_type token_type);
-c_ast_expression *c_parser_parse_expression(c_parser *parser);
-c_ast_expression *c_parser_parse_expression_with_precedence(
-    c_parser *parser,
+C_AstStatement *C_ParserParseStatement(C_Parser *parser);
+C_AstVariableAssignment *C_ParserParseVariableAssignment(C_Parser *parser);
+C_InfixBindingPower C_GetInfixBindingPower(C_TokenType token_type);
+C_AstExpression *C_ParserParseExpression(C_Parser *parser);
+C_AstExpression *C_ParserParseExpressionWithPrecedence(
+    C_Parser *parser,
     double min_binding_power);
-c_ast_constant *c_parser_parse_constant(c_parser *parser);
-c_ast_function_call *c_parser_parse_function_call(c_parser *parser);
-c_ast_return *c_parser_parse_return(c_parser *parser);
-c_ast_block *c_parser_parse_block(c_parser *parser);
-c_ast_function_declaration *c_parser_parse_function_declaration(
-    c_parser *parser);
-c_ast_variable *c_parser_parse_variable(c_parser *parser);
+C_AstConstant *C_ParserParseConstant(C_Parser *parser);
+C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser);
+C_AstReturn *C_ParserParseReturn(C_Parser *parser);
+C_AstBlock *C_ParserParseBlock(C_Parser *parser);
+C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(
+    C_Parser *parser);
+C_AstVariable *C_ParserParseVariable(C_Parser *parser);
 
-void c_ast_free_expression(c_ast_expression *expression);
-void c_ast_free_statement(c_ast_statement *statement);
-void c_ast_free_block(c_ast_block *block);
-void c_ast_free_return(c_ast_return *ret);
-void c_ast_free_variable_assignment(c_ast_variable_assignment *assignment);
-void c_ast_free_function_declaration(c_ast_function_declaration *declaration);
-void c_ast_free_variable(c_ast_variable *variable);
+void C_AstFreeExpression(C_AstExpression *expression);
+void C_AstFreeStatement(C_AstStatement *statement);
+void C_AstFreeBlock(C_AstBlock *block);
+void C_AstFreeReturn(C_AstReturn *ret);
+void C_AstFreeVariableAssignment(C_AstVariableAssignment *assignment);
+void C_AstFreeFunctionDeclaration(C_AstFunctionDeclaration *declaration);
+void C_AstFreeVariable(C_AstVariable *variable);
 
-void c_parser_synchronize_to_declaration(c_parser *parser);
-void c_parser_synchronize(c_parser *parser);
+void C_ParserSynchronizeToDeclaration(C_Parser *parser);
+void C_ParserSynchronize(C_Parser *parser);
 
 #endif  // !PARSER_H

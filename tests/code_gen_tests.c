@@ -15,19 +15,19 @@ void test_code_gen_main_function(void) {
         "   return 69;"
         "}";
     char result[4096] = {0};
-    c_error_context *error_context = c_error_context_create();
+    C_ErrorContext *error_context = C_ErrorContextCreate();
     if (!error_context) {
         fprintf(stderr, "Failed to allocate memory for error_context\n");
         return;
     }
-    c_lexer *lexer = c_lexer_create(source);
-    c_token *tokens = c_lexer_lex(lexer);
-    c_lexer_free(lexer);
-    c_parser *parser =
-        c_parser_create(tokens, error_context, "test_filename.c");
-    c_ast_program *program = c_parser_parse(parser);
+    C_Lexer *lexer = C_LexerCreate(source);
+    C_Token *tokens = C_LexerLex(lexer);
+    C_LexerFree(lexer);
+    C_Parser *parser =
+        C_ParserCreate(tokens, error_context, "test_filename.c");
+    C_AstProgram *program = C_ParserParse(parser);
 
-    char **asm_lines = c_code_gen_emit(program);
+    char **asm_lines = C_CodeGenEmit(program);
 
     for (int i = 0; i < arrlen(asm_lines); i++) {
         strcat(result, asm_lines[i]);
@@ -36,8 +36,8 @@ void test_code_gen_main_function(void) {
         }
     }
 
-    c_parser_free_program(program);
-    c_parser_free(parser);
+    C_ParserFreeProgram(program);
+    C_ParserFree(parser);
 
     for (int i = 0; i < arrlen(asm_lines); i++) {
         free(asm_lines[i]);

@@ -14,13 +14,13 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    char *source = read_file_to_buffer(argv[1]);
+    char *source = C_ReadFileToBuffer(argv[1]);
 
     if (!source) {
         return EXIT_FAILURE;
     }
 
-    c_error_context *error_context = c_error_context_create();
+    C_ErrorContext *error_context = C_ErrorContextCreate();
 
     if (!error_context) {
         fprintf(stderr, "Failed to allocate memory for error_context\n");
@@ -28,19 +28,19 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    c_lexer *lexer = c_lexer_create(source);
-    c_token *tokens = c_lexer_lex(lexer);
+    C_Lexer *lexer = C_LexerCreate(source);
+    C_Token *tokens = C_LexerLex(lexer);
 
-    c_parser *parser = c_parser_create(tokens, error_context, argv[1]);
+    C_Parser *parser = C_ParserCreate(tokens, error_context, argv[1]);
 
-    c_ast_program *program = c_parser_parse(parser);
+    C_AstProgram *program = C_ParserParse(parser);
 
-    if (c_error_context_has_errors(error_context)) {
-        c_error_context_print(error_context, stderr);
-        c_lexer_free(lexer);
-        c_parser_free_program(program);
-        c_error_context_free(error_context);
-        c_parser_free(parser);
+    if (C_ErrorContextHasErrors(error_context)) {
+        C_ErrorContextPrint(error_context, stderr);
+        C_LexerFree(lexer);
+        C_ParserFreeProgram(program);
+        C_ErrorContextFree(error_context);
+        C_ParserFree(parser);
         free(source);
         return EXIT_FAILURE;
     }
@@ -48,12 +48,12 @@ int main(int argc, char *argv[]) {
     FILE *file = fopen("c.asm", "w");
 
     if (!file) {
-        c_parser_free_program(program);
-        c_parser_free(parser);
+        C_ParserFreeProgram(program);
+        C_ParserFree(parser);
         EXIT_WITH_ERROR("Failed to open file for writing\n");
     }
 
-    char **asm_lines = c_code_gen_emit(program);
+    char **asm_lines = C_CodeGenEmit(program);
 
     for (int i = 0; i < arrlen(asm_lines); i++) {
         fprintf(file, "%s\n", asm_lines[i]);
@@ -67,10 +67,10 @@ int main(int argc, char *argv[]) {
         free(asm_lines[i]);
     }
     arrfree(asm_lines);
-    c_lexer_free(lexer);
-    c_parser_free_program(program);
-    c_error_context_free(error_context);
-    c_parser_free(parser);
+    C_LexerFree(lexer);
+    C_ParserFreeProgram(program);
+    C_ErrorContextFree(error_context);
+    C_ParserFree(parser);
     free(source);
     return 0;
 }

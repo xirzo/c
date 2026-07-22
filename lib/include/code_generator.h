@@ -8,20 +8,20 @@
 // rather just identify them by
 // memory pos)
 
-char **c_code_gen_emit(c_ast_program *program);
-char **c_code_gen_emit_function_declaration(
-    c_ast_function_declaration *function_declaration);
-char **c_code_gen_emit_function_call(c_ast_function_call *function_call,
+char **C_CodeGenEmit(C_AstProgram *program);
+char **C_CodeGenEmitFunctionDeclaration(
+    C_AstFunctionDeclaration *function_declaration);
+char **C_CodeGenEmitFunctionCall(C_AstFunctionCall *function_call,
                                      const char *assign_to_variable);
 // TODO: maybe add some context structure
-char **c_code_gen_emit_statement(c_ast_statement *statement,
+char **C_CodeGenEmitStatement(C_AstStatement *statement,
                                  int *current_offset);
-char **c_code_gen_emit_block(c_ast_block *block, int *current_offset);
-char **c_code_gen_emit_return(c_ast_return *ret, int *current_offset);
-char **c_code_gen_emit_binary_expression(c_ast_binary_expression *binary,
+char **C_CodeGenEmitBlock(C_AstBlock *block, int *current_offset);
+char **C_CodeGenEmitReturn(C_AstReturn *ret, int *current_offset);
+char **C_CodeGenEmitBinaryExpression(C_AstBinaryExpression *binary,
                                          int *current_offset);
-char **c_code_gen_emit_expression(c_ast_expression *expression,
+char **C_CodeGenEmitExpression(C_AstExpression *expression,
                                   int *current_offset);
-char **c_code_gen_emit_variable(c_ast_variable *variable);
+char **C_CodeGenEmitVariable(C_AstVariable *variable);
 
 #endif  // !CODE_GENERATOR
