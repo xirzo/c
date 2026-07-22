@@ -1,3 +1,17 @@
+
+# Vim
+*.swp
+
+# Subprojects
+
+/subprojects/*
+
+!/subprojects/*.wrap
+
+!/subprojects/packagefiles/
+
+/subprojects/packagecache/
+
 # Prerequisites
 *.d
 

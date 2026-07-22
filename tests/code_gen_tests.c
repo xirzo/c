@@ -38,6 +38,7 @@ void test_code_gen_main_function(void) {
 
     C_ParserFreeProgram(program);
     C_ParserFree(parser);
+    C_ErrorContextFree(error_context);
 
     for (int i = 0; i < arrlen(asm_lines); i++) {
         free(asm_lines[i]);
@@ -51,15 +52,16 @@ void test_code_gen_main_function(void) {
         "_start:\n"
         "    call main\n"
         "\n"
-        "    mov edi, eax\n"
-        "    mov eax, 60\n"
+        "    mov rdi, rax\n"
+        "    mov rax, 60\n"
         "    syscall\n"
         "\n"
         "main:\n"
         "    push rbp\n"
         "    mov rbp, rsp\n"
-        "    mov eax, 69\n"
+        "    mov rax, 69\n"
         "\n"
+        "    mov rsp, rbp\n"
         "    pop rbp\n"
         "    ret\n";
 

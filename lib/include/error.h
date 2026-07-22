@@ -3,9 +3,10 @@
 
 #include <stdio.h>
 #include "lexer.h"
+#include "xi_string.h"
 
 typedef struct {
-    const char *message;
+    String message;
     const char *filename;
     int line;
     int column;

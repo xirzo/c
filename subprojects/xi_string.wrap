@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/xirzo/xi_string.h
+revision = main
+patch_directory = xi_string
+
+[provide]
+xi_string = xi_string_dep

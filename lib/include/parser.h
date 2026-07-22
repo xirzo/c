@@ -3,6 +3,7 @@
 
 #include "error.h"
 #include "lexer.h"
+#include "xi_string.h"
 
 typedef struct C_AstExpression C_AstExpression;
 typedef struct C_AstStatement C_AstStatement;
@@ -22,11 +23,11 @@ typedef struct {
 } C_AstConstant;
 
 typedef struct {
-    char *function_name;
+    String function_name;
 } C_AstFunctionCall;
 
 typedef struct {
-    char *name;
+    String name;
 } C_AstVariable;
 
 typedef struct {
@@ -64,12 +65,12 @@ typedef struct {
 } C_AstReturn;
 
 typedef struct {
-    char *function_name;
+    String function_name;
     C_AstBlock *body;
 } C_AstFunctionDeclaration;
 
 typedef struct {
-    char *variable_name;
+    String variable_name;
     C_AstExpression *expression;
 } C_AstVariableAssignment;
 

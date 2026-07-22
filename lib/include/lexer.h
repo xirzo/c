@@ -2,6 +2,7 @@
 #define LEXER_H
 
 #include <stddef.h>
+#include "xi_string.h"
 
 typedef enum {
     C_IDENTIFIER = 0,
@@ -32,7 +33,7 @@ typedef struct {
 
     // NOTE: removed union, because otherwise
     // cannot set string to NULL (causes double free)
-    char *string;
+    String string;
     char symbol;
 
     int line;
@@ -57,7 +58,7 @@ C_Lexer *C_LexerCreate(const char *source);
 void C_LexerStartToken(C_Lexer *lexer);
 C_Token C_LexerCreateToken(C_Lexer *lexer,
                              C_TokenType type,
-                             char *string,
+                             String string,
                              char symbol);
 C_Token *C_LexerLex(C_Lexer *lexer);
 void C_LexerFree(C_Lexer *lexer);

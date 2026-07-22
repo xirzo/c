@@ -1,6 +1,6 @@
 #include "error.h"
 #include "stb_ds.h"
-#include "str.h"
+#include "xi_string.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +23,7 @@ void C_ErrorContextFree(C_ErrorContext *ctx) {
     }
 
     for (int i = 0; i < arrlen(ctx->errors); i++) {
-        free((void *)ctx->errors[i].message);
+        StringFree(&ctx->errors[i].message);
     }
 
     arrfree(ctx->errors);
@@ -41,9 +41,9 @@ void C_ErrorReport(C_ErrorContext *ctx,
 
     C_Error *error = &ctx->errors[old_length];
 
-    error->message = strdup(message);
+    error->message = StringCreate(message);
 
-    if (!error->message) {
+    if (!error->message.data) {
         arrdel(ctx->errors, old_length);
         assert("ERROR MEMORY ALLOCATION FAILED");
         return;
@@ -64,9 +64,9 @@ void C_ErrorReportWithToken(C_ErrorContext *ctx,
 
     C_Error *error = &ctx->errors[old_length];
 
-    error->message = strdup(message);
+    error->message = StringCreate(message);
 
-    if (!error->message) {
+    if (!error->message.data) {
         arrdel(ctx->errors, old_length);
         assert("ERROR MEMORY ALLOCATION FAILED");
         return;
@@ -88,7 +88,7 @@ void C_ErrorContextPrint(C_ErrorContext *ctx, FILE *output) {
                 error->filename,
                 error->line,
                 error->column,
-                error->message);
+                StringGetCstr(&error->message));
     }
 }
 

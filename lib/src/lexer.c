@@ -6,6 +6,7 @@
 #include <string.h>
 #include "stb_ds.h"
 #include "utils.h"
+#include "xi_string.h"
 
 void C_LexerAdvance(C_Lexer *lexer) {
     if (lexer->current_position == lexer->source_length) {
@@ -34,7 +35,7 @@ void C_LexerStartToken(C_Lexer *lexer) {
 
 C_Token C_LexerCreateToken(C_Lexer *lexer,
                              C_TokenType type,
-                             char *string,
+                             String string,
                              char symbol) {
     C_Token token = {.type = type,
                      .string = string,
@@ -91,26 +92,20 @@ C_Lexer *C_LexerCreate(const char *source) {
     return lexer;
 }
 
-char *C_AllocateSubstring(const char *source,
-                         size_t start_position,
-                         size_t end_position) {
+String C_AllocateSubstring(const char *source,
+                          size_t start_position,
+                          size_t end_position) {
     assert(start_position <= end_position);
 
-    size_t length = end_position - start_position + 1;
+    String s = StringCreateEmpty(end_position - start_position + 1);
 
-    char *string = malloc(sizeof(char) * length);
-
-    if (!string) {
-        EXIT_WITH_ERROR("Failed to allocate memory for substring");
+    for (size_t i = start_position; i < end_position; i++) {
+        StringAppendChar(&s, source[i]);
     }
 
-    strncpy(string, source + start_position, length);
+    LOG_DEBUG("Substring: %s, Length: %zu\n", StringGetCstr(&s), s.length);
 
-    string[length - 1] = '\0';
-
-    LOG_DEBUG("Substring: %s, Length: %zu\n", string, length);
-
-    return string;
+    return s;
 }
 
 C_Token C_LexerLexNumber(C_Lexer *lexer) {
@@ -125,7 +120,7 @@ C_Token C_LexerLexNumber(C_Lexer *lexer) {
     }
 
     size_t end_position = lexer->current_position;
-    char *number =
+    String number =
         C_AllocateSubstring(lexer->source, start_position, end_position);
 
     return C_LexerCreateToken(lexer, C_INTEGER_LITERAL, number, '\0');
@@ -143,15 +138,16 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
     }
 
     size_t end_position = lexer->current_position;
-    char *word =
+    String word =
         C_AllocateSubstring(lexer->source, start_position, end_position);
 
     C_TokenType type = C_IDENTIFIER;
-    if (strcmp("int", word) == 0) {
+    const char *word_cstr = StringGetCstr(&word);
+    if (strcmp("int", word_cstr) == 0) {
         type = C_INTEGER;
-    } else if (strcmp("void", word) == 0) {
+    } else if (strcmp("void", word_cstr) == 0) {
         type = C_VOID;
-    } else if (strcmp("return", word) == 0) {
+    } else if (strcmp("return", word_cstr) == 0) {
         type = C_RETURN;
     }
 
@@ -173,72 +169,72 @@ C_Token *C_LexerLex(C_Lexer *lexer) {
             case '\0':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_EOF, NULL, lexer->current_char));
+                           lexer, C_EOF, (String){0}, lexer->current_char));
                 break;
 
             case '+':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_PLUS, NULL, lexer->current_char));
+                           lexer, C_PLUS, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
 
             case '-':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_MINUS, NULL, lexer->current_char));
+                           lexer, C_MINUS, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
 
             case '*':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_ASTERISK, NULL, lexer->current_char));
+                           lexer, C_ASTERISK, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
 
             case '/':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_SLASH, NULL, lexer->current_char));
+                           lexer, C_SLASH, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
 
             case '{':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_LBRACE, NULL, lexer->current_char));
+                           lexer, C_LBRACE, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
             case '}':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_RBRACE, NULL, lexer->current_char));
+                           lexer, C_RBRACE, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
             case '(':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_LPAREN, NULL, lexer->current_char));
+                           lexer, C_LPAREN, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
             case ')':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_RPAREN, NULL, lexer->current_char));
+                           lexer, C_RPAREN, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
 
             case ';':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_SEMICOLON, NULL, lexer->current_char));
+                           lexer, C_SEMICOLON, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
             case '=':
                 arrput(tokens,
                        C_LexerCreateToken(
-                           lexer, C_ASSIGN, NULL, lexer->current_char));
+                           lexer, C_ASSIGN, (String){0}, lexer->current_char));
                 C_LexerAdvance(lexer);
                 break;
             default: {
@@ -277,10 +273,7 @@ void C_LexerFreeTokens(C_Token *tokens) {
     }
 
     for (int i = 0; i < arrlen(tokens); i++) {
-        if (tokens[i].string) {
-            free(tokens[i].string);
-            tokens[i].string = NULL;
-        }
+        StringFree(&tokens[i].string);
     }
 
     arrfree(tokens);

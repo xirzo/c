@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "stb_ds.h"
 #include "parser.h"
+#include "xi_string.h"
 
 void setUp(void) {}
 
@@ -29,7 +30,7 @@ void test_parse_function_declaration(void) {
         C_ParserParseFunctionDeclaration(parser);
 
     TEST_ASSERT_NOT_NULL(func);
-    TEST_ASSERT_EQUAL_STRING("main", func->function_name);
+    TEST_ASSERT_EQUAL_STRING("main", StringGetCstr(&func->function_name));
     TEST_ASSERT_NOT_NULL(func->body);
     TEST_ASSERT_EQUAL(1, arrlen(func->body->statements));
 
@@ -40,6 +41,7 @@ void test_parse_function_declaration(void) {
 
     C_AstFreeFunctionDeclaration(func);
     C_ParserFree(parser);
+    C_ErrorContextFree(error_context);
     C_LexerFree(lexer);
 }
 

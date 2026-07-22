@@ -4,8 +4,9 @@
 #include "stb_ds.h"
 #include "utils.h"
 #include "str.h"
+#include "xi_string.h"
 
-#define MAX_LITERAL_LENGTH 64
+#define MAX_LITERAL_LENGTH 128
 
 #define ADD_TO_LINES(new_lines)                   \
     for (int i = 0; i < arrlen(new_lines); i++) { \
@@ -43,9 +44,9 @@ char **C_CodeGenEmit(C_AstProgram *program) {
 char **C_CodeGenEmitConstant(C_AstConstant *constant) {
     char **lines = NULL;
 
-    char *line = malloc(MAX_LITERAL_LENGTH);
-    snprintf(line, MAX_LITERAL_LENGTH, "    mov rax, %d", constant->value);
-    arrput(lines, line);
+    char line[MAX_LITERAL_LENGTH];
+    snprintf(line, sizeof(line), "    mov rax, %d", constant->value);
+    arrput(lines, strdup(line));
 
     return lines;
 }
@@ -54,20 +55,20 @@ char **C_CodeGenEmitFunctionCall(C_AstFunctionCall *function_call,
                                      const char *assign_to_variable) {
     char **lines = NULL;
 
-    char *function_label = malloc(strlen(function_call->function_name) + 10);
+    char function_label[MAX_LITERAL_LENGTH];
     snprintf(function_label,
-             strlen(function_call->function_name) + 10,
+             sizeof(function_label),
              "    call %s",
-             function_call->function_name);
-    arrput(lines, function_label);
+             StringGetCstr(&function_call->function_name));
+    arrput(lines, strdup(function_label));
 
     if (assign_to_variable) {
-        char *assignment_line = malloc(strlen(assign_to_variable) + 20);
+        char assignment_line[MAX_LITERAL_LENGTH];
         snprintf(assignment_line,
-                 strlen(assign_to_variable) + 20,
+                 sizeof(assignment_line),
                  "    mov qword %s, rax",
                  assign_to_variable);
-        arrput(lines, assignment_line);
+        arrput(lines, strdup(assignment_line));
     }
 
     return lines;
@@ -113,16 +114,13 @@ char **C_CodeGenEmitVariableAssignment(
 
     *current_offset += 8;
 
-    int offset_digits = snprintf(NULL, 0, "%d", *current_offset);
-    size_t length = strlen(assignment->variable_name) + 20 + offset_digits;
-    char *variable_label = malloc(length);
-
+    char variable_label[MAX_LITERAL_LENGTH];
     snprintf(variable_label,
-             length,
+             sizeof(variable_label),
              "    %%define %s [rbp-%d]",
-             assignment->variable_name,
+             StringGetCstr(&assignment->variable_name),
              *current_offset);
-    arrput(lines, variable_label);
+    arrput(lines, strdup(variable_label));
     arrput(lines, strdup(""));
 
     return lines;
@@ -219,11 +217,10 @@ char **C_CodeGenEmitBinaryExpression(C_AstBinaryExpression *binary,
 char **C_CodeGenEmitVariable(C_AstVariable *variable) {
     char **lines = NULL;
 
-    size_t length = strlen(variable->name) + 30;
-    char *load_line = malloc(length);
-
-    snprintf(load_line, length, "    mov rax, qword %s", variable->name);
-    arrput(lines, load_line);
+    char load_line[MAX_LITERAL_LENGTH];
+    snprintf(load_line, sizeof(load_line), "    mov rax, qword %s",
+             StringGetCstr(&variable->name));
+    arrput(lines, strdup(load_line));
 
     return lines;
 }
@@ -288,7 +285,7 @@ char **C_CodeGenEmitStatement(C_AstStatement *statement,
                             C_CodeGenEmitFunctionCall(
                                 statement->assignment->expression
                                     ->function_call,
-                                statement->assignment->variable_name);
+                                StringGetCstr(&statement->assignment->variable_name));
                         ADD_TO_LINES(function_call_lines);
                         arrfree(function_call_lines);
                         break;
@@ -299,14 +296,13 @@ char **C_CodeGenEmitStatement(C_AstStatement *statement,
                         ADD_TO_LINES(expression_lines);
                         arrfree(expression_lines);
 
-                        char *assignment_line = malloc(
-                            strlen(statement->assignment->variable_name) + 30);
+                        char assignment_line[MAX_LITERAL_LENGTH];
                         snprintf(
                             assignment_line,
-                            strlen(statement->assignment->variable_name) + 30,
+                            sizeof(assignment_line),
                             "    mov qword %s, rax",
-                            statement->assignment->variable_name);
-                        arrput(lines, assignment_line);
+                            StringGetCstr(&statement->assignment->variable_name));
+                        arrput(lines, strdup(assignment_line));
                     }
                 }
             }
@@ -342,13 +338,12 @@ char **C_CodeGenEmitFunctionDeclaration(
     C_AstFunctionDeclaration *function_declaration) {
     char **lines = NULL;
 
-    char *function_label =
-        malloc(strlen(function_declaration->function_name) + 2);
+    char function_label[MAX_LITERAL_LENGTH];
     snprintf(function_label,
-             strlen(function_declaration->function_name) + 2,
+             sizeof(function_label),
              "%s:",
-             function_declaration->function_name);
-    arrput(lines, function_label);
+             StringGetCstr(&function_declaration->function_name));
+    arrput(lines, strdup(function_label));
 
     arrput(lines, strdup("    push rbp"));
     arrput(lines, strdup("    mov rbp, rsp"));

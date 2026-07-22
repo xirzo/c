@@ -17,23 +17,26 @@ else
   message('Debug logging disabled (release build)')
 endif
 
-dependencies = []
+xi_string_proj = subproject('xi_string')
+xi_string_dep = xi_string_proj.get_variable('xi_string_dep')
+
+dependencies = [xi_string_dep]
 srcs = [
   './bin/main.c',
   './lib/src/lexer.c',
   './lib/src/parser.c',
   './lib/src/code_generator.c',
   './lib/src/str.c',
-  './lib/src/error.c'
+  './lib/src/error.c',
 ]
 
 warning_suppression_flags = [
   '-Wno-unused-parameter',
   '-Wno-deprecated-declarations',
-  '-Wno-unused-result', 
+  '-Wno-unused-result',
   '-Wno-implicit-fallthrough',
   '-Wno-unused-function',
-  '-Wno-unused-variable', 
+  '-Wno-unused-variable',
 ]
 
 stb_ds = static_library('stb_ds',
@@ -56,10 +59,10 @@ test_include = include_directories('./external/unity', './lib/include/')
 
 lexer_test_src = [
   './tests/lexer_tests.c',
-  './lib/src/lexer.c', 
+  './lib/src/lexer.c',
   './lib/src/stb_ds.c',
   './lib/src/str.c',
-  './lib/src/error.c'
+  './lib/src/error.c',
 ]
 
 lexer_test = executable(
@@ -74,11 +77,11 @@ test('lexer tests', lexer_test)
 
 parser_test_src = [
   './tests/parser_tests.c',
-  './lib/src/lexer.c', 
-  './lib/src/parser.c', 
+  './lib/src/lexer.c',
+  './lib/src/parser.c',
   './lib/src/stb_ds.c',
   './lib/src/str.c',
-  './lib/src/error.c'
+  './lib/src/error.c',
 ]
 
 parser_test = executable(
@@ -93,12 +96,12 @@ test('parser tests', parser_test)
 
 code_gen_test_src = [
   './tests/code_gen_tests.c',
-  './lib/src/lexer.c', 
-  './lib/src/parser.c', 
-  './lib/src/code_generator.c', 
+  './lib/src/lexer.c',
+  './lib/src/parser.c',
+  './lib/src/code_generator.c',
   './lib/src/stb_ds.c',
   './lib/src/str.c',
-  './lib/src/error.c'
+  './lib/src/error.c',
 ]
 
 code_gen_test = executable(

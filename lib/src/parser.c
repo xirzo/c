@@ -7,7 +7,7 @@
 #include "lexer.h"
 #include "utils.h"
 #include "stb_ds.h"
-#include "str.h"
+#include "xi_string.h"
 
 C_Parser *C_ParserCreate(C_Token *tokens,
                           C_ErrorContext *error_context,
@@ -69,14 +69,14 @@ C_Token C_ParserPeekAhead(C_Parser *parser) {
 
 C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
     C_AstConstant *constant = malloc(sizeof(C_AstConstant));
-    constant->value = atoi(parser->current_token.string);
+    constant->value = atoi(StringGetCstr(&parser->current_token.string));
     C_ParserAdvance(parser);
     return constant;
 }
 
 C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser) {
     C_AstFunctionCall *function_call = malloc(sizeof(C_AstFunctionCall));
-    function_call->function_name = strdup(parser->current_token.string);
+    function_call->function_name = StringDuplicate(&parser->current_token.string);
 
     LOG_DEBUG("Parsing function call\n");
     C_ParserAdvance(parser);
@@ -86,7 +86,7 @@ C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser) {
                                   "Expected '(' after function name",
                                   parser->current_token,
                                   parser->filename);
-        free(function_call->function_name);
+        StringFree(&function_call->function_name);
         free(function_call);
         return NULL;
     }
@@ -98,7 +98,7 @@ C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser) {
                                   "Expected ')' after function call",
                                   parser->current_token,
                                   parser->filename);
-        free(function_call->function_name);
+        StringFree(&function_call->function_name);
         free(function_call);
         return NULL;
     }
@@ -193,7 +193,7 @@ C_AstVariableAssignment *C_ParserParseVariableAssignment(
         return NULL;
     }
 
-    assignment->variable_name = strdup(parser->current_token.string);
+    assignment->variable_name = StringDuplicate(&parser->current_token.string);
 
     C_ParserAdvance(parser);
 
@@ -202,7 +202,7 @@ C_AstVariableAssignment *C_ParserParseVariableAssignment(
                                   "Expected '=' after variable name",
                                   parser->current_token,
                                   parser->filename);
-        free(assignment->variable_name);
+        StringFree(&assignment->variable_name);
         free(assignment);
         return NULL;
     }
@@ -211,7 +211,7 @@ C_AstVariableAssignment *C_ParserParseVariableAssignment(
 
     assignment->expression = C_ParserParseExpression(parser);
     if (!assignment->expression) {
-        free(assignment->variable_name);
+        StringFree(&assignment->variable_name);
         free(assignment);
         return NULL;
     }
@@ -221,7 +221,7 @@ C_AstVariableAssignment *C_ParserParseVariableAssignment(
                                   "Expected ';' after assignment",
                                   parser->current_token,
                                   parser->filename);
-        free(assignment->variable_name);
+        StringFree(&assignment->variable_name);
         C_AstFreeExpression(assignment->expression);
         free(assignment);
         return NULL;
@@ -361,7 +361,7 @@ C_AstVariable *C_ParserParseVariable(C_Parser *parser) {
         return NULL;
     }
 
-    variable->name = strdup(parser->current_token.string);
+    variable->name = StringDuplicate(&parser->current_token.string);
     C_ParserAdvance(parser);
 
     return variable;
@@ -460,7 +460,7 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(
         return NULL;
     }
 
-    function_declaration->function_name = strdup(parser->current_token.string);
+    function_declaration->function_name = StringDuplicate(&parser->current_token.string);
 
     C_ParserAdvance(parser);
 
@@ -469,7 +469,7 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(
                                   "Expected '(' after function name",
                                   parser->current_token,
                                   parser->filename);
-        free(function_declaration->function_name);
+        StringFree(&function_declaration->function_name);
         free(function_declaration);
         return NULL;
     }
@@ -481,7 +481,7 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(
                                   "Expected ')' after function parameters",
                                   parser->current_token,
                                   parser->filename);
-        free(function_declaration->function_name);
+        StringFree(&function_declaration->function_name);
         free(function_declaration);
         return NULL;
     }
@@ -490,7 +490,7 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(
 
     function_declaration->body = C_ParserParseBlock(parser);
     if (!function_declaration->body) {
-        free(function_declaration->function_name);
+        StringFree(&function_declaration->function_name);
         free(function_declaration);
         return NULL;
     }
@@ -577,7 +577,7 @@ void C_AstFreeExpression(C_AstExpression *expression) {
             free(expression->constant);
             break;
         case C_FUNCTION_CALL:
-            free(expression->function_call->function_name);
+            StringFree(&expression->function_call->function_name);
             free(expression->function_call);
             break;
         case C_BINARY_EXPRESSION:
@@ -623,7 +623,7 @@ void C_AstFreeVariableAssignment(C_AstVariableAssignment *assignment) {
         return;
     }
 
-    free(assignment->variable_name);
+    StringFree(&assignment->variable_name);
     if (assignment->expression) {
         C_AstFreeExpression(assignment->expression);
     }
@@ -635,7 +635,7 @@ void C_AstFreeFunctionDeclaration(C_AstFunctionDeclaration *declaration) {
         return;
     }
 
-    free(declaration->function_name);
+    StringFree(&declaration->function_name);
     C_AstFreeBlock(declaration->body);
     free(declaration);
 }
@@ -700,6 +700,6 @@ void C_AstFreeVariable(C_AstVariable *variable) {
         return;
     }
 
-    free(variable->name);
+    StringFree(&variable->name);
     free(variable);
 }
