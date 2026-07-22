@@ -67,7 +67,7 @@ lexer_test = executable(
   sources: lexer_test_src + unity_src,
   include_directories: test_include,
   dependencies: dependencies,
-  c_args: [my_c_args]
+  c_args: my_c_args + warning_suppression_flags
 )
 
 test('lexer tests', lexer_test)
@@ -86,7 +86,7 @@ parser_test = executable(
   sources: parser_test_src + unity_src,
   include_directories: test_include,
   dependencies: dependencies,
-  c_args: [my_c_args]
+  c_args: my_c_args + warning_suppression_flags
 )
 
 test('parser tests', parser_test)
@@ -106,7 +106,7 @@ code_gen_test = executable(
   sources: code_gen_test_src + unity_src,
   include_directories: test_include,
   dependencies: dependencies,
-  c_args: [my_c_args]
+  c_args: my_c_args + warning_suppression_flags
 )
 
 test('code generator tests', code_gen_test)
