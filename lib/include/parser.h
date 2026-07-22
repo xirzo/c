@@ -6,129 +6,135 @@
 #include "xi_string.h"
 
 typedef struct C_AstExpression C_AstExpression;
-typedef struct C_AstStatement C_AstStatement;
+typedef struct C_AstStatement  C_AstStatement;
 
 typedef enum {
-    // NOTE: maybe should separate
-    // into different types of literals
-    C_CONSTANT,
-    C_FUNCTION_CALL,
-    C_VARIABLE,
-    C_BINARY_EXPRESSION,
+  C_AST_CONSTANT_INT,
+  C_AST_CONSTANT_STRING,
+} C_AstConstantType;
+
+typedef enum {
+  // NOTE: maybe should separate
+  // into different types of literals
+  C_CONSTANT,
+  C_FUNCTION_CALL,
+  C_VARIABLE,
+  C_BINARY_EXPRESSION,
 } C_AstExpressionType;
 
 typedef struct {
-    // NOTE: for now only int
-    int value;
+  // NOTE: for now only int
+  C_AstConstantType type;
+  union {
+    int    int_value;
+    String string_value;
+  } value;
 } C_AstConstant;
 
 typedef struct {
-    String function_name;
+  String function_name;
 } C_AstFunctionCall;
 
 typedef struct {
-    String name;
+  String name;
 } C_AstVariable;
 
 typedef struct {
-    char symbol;
-    C_AstExpression *lhs;
-    C_AstExpression *rhs;
+  char             symbol;
+  C_AstExpression *lhs;
+  C_AstExpression *rhs;
 } C_AstBinaryExpression;
 
 typedef struct C_AstExpression {
-    C_AstExpressionType type;
+  C_AstExpressionType type;
 
-    union {
-        C_AstConstant *constant;
-        C_AstFunctionCall *function_call;
-        C_AstVariable *variable;
-        C_AstBinaryExpression *binary;
-    };
+  union {
+    C_AstConstant         *constant;
+    C_AstFunctionCall     *function_call;
+    C_AstVariable         *variable;
+    C_AstBinaryExpression *binary;
+  };
 } C_AstExpression;
 
 typedef enum {
-    C_STATEMENT_BLOCK,
-    C_STATEMENT_RETURN,
-    C_STATEMENT_FUNCTION_DECLARATION,
-    C_STATEMENT_EXPRESSION,
-    C_STATEMENT_ASSIGNMENT,
-    C_STATEMENT_NOOP,
+  C_STATEMENT_BLOCK,
+  C_STATEMENT_RETURN,
+  C_STATEMENT_FUNCTION_DECLARATION,
+  C_STATEMENT_EXPRESSION,
+  C_STATEMENT_ASSIGNMENT,
+  C_STATEMENT_NOOP,
 } C_AstStatementType;
 
 typedef struct {
-    C_AstStatement **statements;
+  C_AstStatement **statements;
 } C_AstBlock;
 
 typedef struct {
-    C_AstExpression *value;
+  C_AstExpression *value;
 } C_AstReturn;
 
 typedef struct {
-    String function_name;
-    C_AstBlock *body;
+  String      function_name;
+  C_AstBlock *body;
 } C_AstFunctionDeclaration;
 
 typedef struct {
-    String variable_name;
-    C_AstExpression *expression;
+  String           variable_name;
+  C_AstExpression *expression;
 } C_AstVariableAssignment;
 
 typedef struct C_AstStatement {
-    C_AstStatementType type;
+  C_AstStatementType type;
 
-    union {
-        C_AstBlock *block;
-        C_AstReturn *return_statement;
-        C_AstFunctionDeclaration *function_declaration;
-        C_AstExpression *expression;
-        C_AstVariableAssignment *assignment;
-    };
+  union {
+    C_AstBlock               *block;
+    C_AstReturn              *return_statement;
+    C_AstFunctionDeclaration *function_declaration;
+    C_AstExpression          *expression;
+    C_AstVariableAssignment  *assignment;
+  };
 } C_AstStatement;
 
 typedef struct {
-    C_AstFunctionDeclaration **function_declarations;
+  C_AstFunctionDeclaration **function_declarations;
 } C_AstProgram;
 
 typedef struct {
-    double left;
-    double right;
+  double left;
+  double right;
 } C_InfixBindingPower;
 
 typedef struct {
-    C_ErrorContext *error_context;
-    const char *filename;
-    C_Token *tokens;
-    C_Token current_token;
-    size_t current_position;
-    size_t read_position;
+  C_ErrorContext *error_context;
+  const char     *filename;
+  C_Token        *tokens;
+  C_Token         current_token;
+  size_t          current_position;
+  size_t          read_position;
 } C_Parser;
 
-C_Parser *C_ParserCreate(C_Token *tokens,
-                          C_ErrorContext *error_context,
-                          const char *filename);
+C_Parser     *C_ParserCreate(C_Token *tokens, C_ErrorContext *error_context,
+                             const char *filename);
 C_AstProgram *C_ParserParse(C_Parser *parser);
-void C_ParserFree(C_Parser *parser);
-void C_ParserFreeProgram(C_AstProgram *program);
+void          C_ParserFree(C_Parser *parser);
+void          C_ParserFreeProgram(C_AstProgram *program);
 
 // NOTE: in fact not a part of public api, but can be used
-void C_ParserAdvance(C_Parser *parser);
+void    C_ParserAdvance(C_Parser *parser);
 C_Token C_ParserPeek(C_Parser *parser);
 
-C_AstStatement *C_ParserParseStatement(C_Parser *parser);
+C_AstStatement          *C_ParserParseStatement(C_Parser *parser);
 C_AstVariableAssignment *C_ParserParseVariableAssignment(C_Parser *parser);
-C_InfixBindingPower C_GetInfixBindingPower(C_TokenType token_type);
-C_AstExpression *C_ParserParseExpression(C_Parser *parser);
-C_AstExpression *C_ParserParseExpressionWithPrecedence(
-    C_Parser *parser,
-    double min_binding_power);
-C_AstConstant *C_ParserParseConstant(C_Parser *parser);
-C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser);
-C_AstReturn *C_ParserParseReturn(C_Parser *parser);
-C_AstBlock *C_ParserParseBlock(C_Parser *parser);
-C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(
-    C_Parser *parser);
-C_AstVariable *C_ParserParseVariable(C_Parser *parser);
+C_InfixBindingPower      C_GetInfixBindingPower(C_TokenType token_type);
+C_AstExpression         *C_ParserParseExpression(C_Parser *parser);
+C_AstExpression         *C_ParserParseExpressionWithPrecedence(
+    C_Parser *parser, double min_binding_power);
+C_AstConstant            *C_ParserParseConstant(C_Parser *parser);
+C_AstFunctionCall        *C_ParserParseFunctionCall(C_Parser *parser);
+C_AstReturn              *C_ParserParseReturn(C_Parser *parser);
+C_AstBlock               *C_ParserParseBlock(C_Parser *parser);
+C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser);
+C_AstVariable            *C_ParserParseVariable(C_Parser *parser);
 
 void C_AstFreeExpression(C_AstExpression *expression);
 void C_AstFreeStatement(C_AstStatement *statement);
