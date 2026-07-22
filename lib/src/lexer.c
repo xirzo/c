@@ -101,6 +101,37 @@ static String C_SourceSubstring(const C_Lexer *lexer, size_t start_position,
   return result;
 }
 
+C_Token C_LexerLexChar(C_Lexer *lexer) {
+  C_LexerAdvance(lexer);
+  size_t start_position = lexer->current_position;
+
+  LOG_DEBUG("Lexing a char\n");
+  LOG_DEBUG("Current position %zu\n", lexer->current_position);
+
+  if (lexer->current_char == '\\') {
+    C_LexerAdvance(lexer);
+    if (lexer->current_char != '\'') {
+      C_LexerAdvance(lexer);
+    }
+  } else {
+    C_LexerAdvance(lexer);
+  }
+
+  size_t end_position = lexer->current_position;
+
+  if (lexer->current_char != '\'') {
+    EXIT_WITH_ERROR(
+        "Expected closing single quote for char literal at line %zu, column "
+        "%zu\n",
+        lexer->current_line, lexer->current_column);
+  }
+  C_LexerAdvance(lexer);
+
+  String string = C_SourceSubstring(lexer, start_position, end_position);
+
+  return C_LexerCreateToken(lexer, C_CHAR_LITERAL, string, '\0');
+}
+
 C_Token C_LexerLexString(C_Lexer *lexer) {
   C_LexerAdvance(lexer);
   size_t start_position = lexer->current_position;
@@ -156,6 +187,8 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
   const char *word_cstr = StringGetCstr(&word);
   if (strcmp("int", word_cstr) == 0) {
     type = C_INTEGER;
+  } else if (strcmp("char", word_cstr) == 0) {
+    type = C_CHAR;
   } else if (strcmp("void", word_cstr) == 0) {
     type = C_VOID;
   } else if (strcmp("return", word_cstr) == 0) {
@@ -237,6 +270,10 @@ C_Token *C_LexerLex(C_Lexer *lexer) {
         C_LexerAdvance(lexer);
         break;
 
+      case '\'':
+        arrput(tokens, C_LexerLexChar(lexer));
+        break;
+
       case '"':
         arrput(tokens, C_LexerLexString(lexer));
         break;
@@ -290,8 +327,12 @@ const char *C_TokenTypeToString(C_TokenType type) {
       return "C_INTEGER_LITERAL";
     case C_STRING_LITERAL:
       return "C_STRING_LITERAL";
+    case C_CHAR_LITERAL:
+      return "C_CHAR_LITERAL";
     case C_INTEGER:
       return "C_INTEGER";
+    case C_CHAR:
+      return "C_CHAR";
     case C_RETURN:
       return "C_RETURN";
     case C_PLUS:

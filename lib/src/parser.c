@@ -1,5 +1,6 @@
 #include "parser.h"
 #include <assert.h>
+#include <ctype.h>
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,6 +67,54 @@ C_Token C_ParserPeekAhead(C_Parser *parser) {
   return parser->tokens[parser->read_position + 1];
 }
 
+static int C_ParseCharEscape(const char *str, size_t *offset) {
+  if (str[*offset] != '\\') {
+    return (unsigned char)str[(*offset)++];
+  }
+
+  (*offset)++;
+  switch (str[*offset]) {
+    case 'n':
+      (*offset)++;
+      return '\n';
+    case 't':
+      (*offset)++;
+      return '\t';
+    case 'r':
+      (*offset)++;
+      return '\r';
+    case '0':
+      (*offset)++;
+      return '\0';
+    case '\\':
+      (*offset)++;
+      return '\\';
+    case '\'':
+      (*offset)++;
+      return '\'';
+    case '"':
+      (*offset)++;
+      return '"';
+    case 'x': {
+      (*offset)++;
+      int value = 0;
+      for (int i = 0; i < 2 && isxdigit((unsigned char)str[*offset]); i++) {
+        char c = str[*offset];
+        if (isdigit((unsigned char)c))
+          value = value * 16 + (c - '0');
+        else if (c >= 'a' && c <= 'f')
+          value = value * 16 + (c - 'a' + 10);
+        else
+          value = value * 16 + (c - 'A' + 10);
+        (*offset)++;
+      }
+      return value;
+    }
+    default:
+      return (unsigned char)str[(*offset)++];
+  }
+}
+
 C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
   C_AstConstant *constant = malloc(sizeof(C_AstConstant));
 
@@ -75,6 +124,13 @@ C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
       constant->value.int_value =
           atoi(StringGetCstr(&parser->current_token.string));
       break;
+    case C_CHAR_LITERAL: {
+      constant->type = C_AST_CONSTANT_CHAR;
+      const char *raw = StringGetCstr(&parser->current_token.string);
+      size_t offset = 0;
+      constant->value.int_value = C_ParseCharEscape(raw, &offset);
+      break;
+    }
     case C_STRING_LITERAL:
       constant->type               = C_AST_CONSTANT_STRING;
       constant->value.string_value = parser->current_token.string;
@@ -128,6 +184,7 @@ C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
 
   switch (parser->current_token.type) {
     case C_INTEGER:
+    case C_CHAR:
       if (C_ParserPeekAhead(parser).type == C_LPAREN) {
         statement->type = C_STATEMENT_FUNCTION_DECLARATION;
         statement->function_declaration =
@@ -269,6 +326,7 @@ C_AstExpression *C_ParserParseExpressionWithPrecedence(
       break;
     }
 
+    case C_CHAR_LITERAL:
     case C_STRING_LITERAL: {
       lhs->type     = C_CONSTANT;
       lhs->constant = C_ParserParseConstant(parser);
@@ -503,7 +561,8 @@ C_AstProgram *C_ParserParse(C_Parser *parser) {
 
   while (parser->current_token.type != C_EOF) {
     switch (parser->current_token.type) {
-      case C_INTEGER: {
+      case C_INTEGER:
+      case C_CHAR: {
         C_AstFunctionDeclaration *decl =
             C_ParserParseFunctionDeclaration(parser);
         if (decl) {
@@ -536,6 +595,7 @@ void C_ParserSynchronize(C_Parser *parser) {
       case C_LBRACE:
       case C_RETURN:
       case C_INTEGER:
+      case C_CHAR:
         return;
       default:
         C_ParserAdvance(parser);
@@ -546,7 +606,8 @@ void C_ParserSynchronize(C_Parser *parser) {
 
 void C_ParserSynchronizeToDeclaration(C_Parser *parser) {
   while (parser->current_token.type != C_EOF) {
-    if (parser->current_token.type == C_INTEGER &&
+    if ((parser->current_token.type == C_INTEGER ||
+         parser->current_token.type == C_CHAR) &&
         C_ParserPeek(parser).type == C_IDENTIFIER &&
         C_ParserPeekAhead(parser).type == C_LPAREN) {
       return;

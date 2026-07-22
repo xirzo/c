@@ -94,10 +94,94 @@ void test_parse_string_literal(void) {
   C_LexerFree(lexer);
 }
 
+void test_parse_char_literal(void) {
+  const char source[1024] =
+      "int main() {"
+      "   'a';"
+      "return 0;"
+      "}";
+
+  C_ErrorContext *error_context = C_ErrorContextCreate();
+  if (!error_context) {
+    fprintf(stderr, "Failed to allocate memory for error_context\n");
+    return;
+  }
+
+  C_Lexer  *lexer  = C_LexerCreate(source);
+  C_Token  *tokens = C_LexerLex(lexer);
+  C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
+
+  C_AstProgram *program = C_ParserParse(parser);
+
+  TEST_ASSERT_NOT_NULL(program);
+  TEST_ASSERT_EQUAL(1, arrlen(program->function_declarations));
+
+  C_AstFunctionDeclaration *func = program->function_declarations[0];
+  TEST_ASSERT_EQUAL(2, arrlen(func->body->statements));
+
+  C_AstStatement *stmt0 = func->body->statements[0];
+  TEST_ASSERT_NOT_NULL(stmt0);
+  TEST_ASSERT_EQUAL(C_STATEMENT_EXPRESSION, stmt0->type);
+  TEST_ASSERT_NOT_NULL(stmt0->expression);
+  TEST_ASSERT_EQUAL(C_CONSTANT, stmt0->expression->type);
+  TEST_ASSERT_EQUAL(C_AST_CONSTANT_CHAR, stmt0->expression->constant->type);
+  TEST_ASSERT_EQUAL('a', stmt0->expression->constant->value.int_value);
+
+  C_ParserFreeProgram(program);
+  C_ParserFree(parser);
+  C_ErrorContextFree(error_context);
+  C_LexerFree(lexer);
+}
+
+void test_parse_char_declaration(void) {
+  const char source[1024] =
+      "int main() {"
+      "   char c = 'a';"
+      "return 0;"
+      "}";
+
+  C_ErrorContext *error_context = C_ErrorContextCreate();
+  if (!error_context) {
+    fprintf(stderr, "Failed to allocate memory for error_context\n");
+    return;
+  }
+
+  C_Lexer  *lexer  = C_LexerCreate(source);
+  C_Token  *tokens = C_LexerLex(lexer);
+  C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
+
+  C_AstProgram *program = C_ParserParse(parser);
+
+  TEST_ASSERT_NOT_NULL(program);
+  TEST_ASSERT_EQUAL(1, arrlen(program->function_declarations));
+
+  C_AstFunctionDeclaration *func = program->function_declarations[0];
+  TEST_ASSERT_EQUAL(2, arrlen(func->body->statements));
+
+  C_AstStatement *stmt0 = func->body->statements[0];
+  TEST_ASSERT_NOT_NULL(stmt0);
+  TEST_ASSERT_EQUAL(C_STATEMENT_ASSIGNMENT, stmt0->type);
+  TEST_ASSERT_NOT_NULL(stmt0->assignment);
+  TEST_ASSERT_EQUAL_STRING("c",
+                           StringGetCstr(&stmt0->assignment->variable_name));
+  TEST_ASSERT_NOT_NULL(stmt0->assignment->expression);
+  TEST_ASSERT_EQUAL(C_CONSTANT, stmt0->assignment->expression->type);
+  TEST_ASSERT_EQUAL(C_AST_CONSTANT_CHAR,
+                    stmt0->assignment->expression->constant->type);
+  TEST_ASSERT_EQUAL('a', stmt0->assignment->expression->constant->value.int_value);
+
+  C_ParserFreeProgram(program);
+  C_ParserFree(parser);
+  C_ErrorContextFree(error_context);
+  C_LexerFree(lexer);
+}
+
 int main(void) {
   setvbuf(stdout, NULL, _IONBF, 0);
   UNITY_BEGIN();
   RUN_TEST(test_parse_function_declaration);
   RUN_TEST(test_parse_string_literal);
+  RUN_TEST(test_parse_char_literal);
+  RUN_TEST(test_parse_char_declaration);
   return UNITY_END();
 }

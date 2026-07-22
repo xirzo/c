@@ -72,6 +72,43 @@ void test_default_main(void) {
   C_LexerFreeTokens(tokens);
 }
 
+void test_lex_char(void) {
+  const char source[1024] = "'a'";
+  C_Lexer   *lexer        = C_LexerCreate(source);
+  C_Token   *tokens       = C_LexerLex(lexer);
+
+  TEST_ASSERT_EQUAL(C_CHAR_LITERAL, tokens[0].type);
+  TEST_ASSERT_EQUAL_STRING("a", StringGetCstr(&tokens[0].string));
+
+  C_LexerFree(lexer);
+  C_LexerFreeTokens(tokens);
+}
+
+void test_lex_char_escape(void) {
+  const char source[1024] = "'\\n'";
+  C_Lexer   *lexer        = C_LexerCreate(source);
+  C_Token   *tokens       = C_LexerLex(lexer);
+
+  TEST_ASSERT_EQUAL(C_CHAR_LITERAL, tokens[0].type);
+  TEST_ASSERT_EQUAL_STRING("\\n", StringGetCstr(&tokens[0].string));
+
+  C_LexerFree(lexer);
+  C_LexerFreeTokens(tokens);
+}
+
+void test_lex_char_keyword(void) {
+  const char source[1024] = "char x;";
+  C_Lexer   *lexer        = C_LexerCreate(source);
+  C_Token   *tokens       = C_LexerLex(lexer);
+
+  TEST_ASSERT_EQUAL(C_CHAR, tokens[0].type);
+  TEST_ASSERT_EQUAL(C_IDENTIFIER, tokens[1].type);
+  TEST_ASSERT_EQUAL_STRING("x", StringGetCstr(&tokens[1].string));
+
+  C_LexerFree(lexer);
+  C_LexerFreeTokens(tokens);
+}
+
 int main(void) {
   setvbuf(stdout, NULL, _IONBF, 0);
   UNITY_BEGIN();
@@ -79,6 +116,9 @@ int main(void) {
   RUN_TEST(test_lex_numbers);
   RUN_TEST(test_lex_string);
   RUN_TEST(test_lex_multiple_strings);
+  RUN_TEST(test_lex_char);
+  RUN_TEST(test_lex_char_escape);
+  RUN_TEST(test_lex_char_keyword);
   RUN_TEST(test_default_main);
   return UNITY_END();
 }

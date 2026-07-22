@@ -9,8 +9,10 @@ typedef enum {
 
   C_INTEGER_LITERAL,
   C_STRING_LITERAL,
+  C_CHAR_LITERAL,
 
   C_INTEGER,
+  C_CHAR,
   C_VOID,
 
   C_RETURN,

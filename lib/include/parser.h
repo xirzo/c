@@ -10,6 +10,7 @@ typedef struct C_AstStatement  C_AstStatement;
 
 typedef enum {
   C_AST_CONSTANT_INT,
+  C_AST_CONSTANT_CHAR,
   C_AST_CONSTANT_STRING,
 } C_AstConstantType;
 
