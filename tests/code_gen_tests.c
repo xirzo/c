@@ -4,6 +4,7 @@
 #include "parser.h"
 #include "stb_ds.h"
 #include "unity.h"
+#include "xi_string.h"
 
 void setUp(void) {}
 
@@ -26,10 +27,10 @@ void test_code_gen_main_function(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  char **asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
-    strcat(result, asm_lines[i]);
+    strcat(result, StringGetCstr(&asm_lines[i]));
     if (i < arrlen(asm_lines) - 1) {
       strcat(result, "\n");
     }
@@ -40,7 +41,7 @@ void test_code_gen_main_function(void) {
   C_ErrorContextFree(error_context);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
-    free(asm_lines[i]);
+    StringFree(&asm_lines[i]);
   }
   arrfree(asm_lines);
 

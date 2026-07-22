@@ -86,10 +86,10 @@ int main(int argc, char *argv[]) {
     EXIT_WITH_ERROR("Failed to open file for writing");
   }
 
-  char **asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
-    fprintf(file, "%s\n", asm_lines[i]);
+    fprintf(file, "%s\n", StringGetCstr(&asm_lines[i]));
   }
   fclose(file);
 
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
   system(StringGetCstr(&ld_command));
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
-    free(asm_lines[i]);
+    StringFree(&asm_lines[i]);
   }
   arrfree(asm_lines);
   C_LexerFree(lexer);

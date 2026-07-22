@@ -6,29 +6,90 @@
 #include "utils.h"
 #include "xi_string.h"
 
-#define MAX_LITERAL_LENGTH 128
+#define MAX_LITERAL_LENGTH 256
 
 #define ADD_TO_LINES(new_lines)                 \
   for (int i = 0; i < arrlen(new_lines); i++) { \
     arrput(lines, new_lines[i]);                \
   }
 
-char **C_CodeGenEmit(C_AstProgram *program) {
-  char **lines = NULL;
+static String *cg_string_data = NULL;
+static int     cg_string_count = 0;
 
-  arrput(lines, strdup("global _start"));
-  arrput(lines, strdup(""));
-  arrput(lines, strdup("section .text"));
-  arrput(lines, strdup("_start:"));
-  arrput(lines, strdup("    call main"));
-  arrput(lines, strdup(""));
-  arrput(lines, strdup("    mov rdi, rax"));
-  arrput(lines, strdup("    mov rax, 60"));
-  arrput(lines, strdup("    syscall"));
-  arrput(lines, strdup(""));
+static void C_CodeGenResetStringState(void) {
+  if (cg_string_data) {
+    for (int i = 0; i < arrlen(cg_string_data); i++) {
+      StringFree(&cg_string_data[i]);
+    }
+    arrfree(cg_string_data);
+  }
+  cg_string_data = NULL;
+  cg_string_count = 0;
+}
+
+static void C_CodeGenEscapeString(const char *input, char *output,
+                                  size_t output_size) {
+  size_t j = 0;
+  for (size_t i = 0; input[i] != '\0' && j + 6 < output_size; i++) {
+    switch (input[i]) {
+      case '\\':
+        output[j++] = '\\';
+        output[j++] = '\\';
+        break;
+      case '"':
+        output[j++] = '\\';
+        output[j++] = '"';
+        break;
+      case '\n':
+        output[j++] = '\\';
+        output[j++] = 'n';
+        break;
+      case '\t':
+        output[j++] = '\\';
+        output[j++] = 't';
+        break;
+      case '\r':
+        output[j++] = '\\';
+        output[j++] = 'r';
+        break;
+      default:
+        if ((unsigned char)input[i] < 32) {
+          j += snprintf(output + j, output_size - j, "\\x%02x",
+                        (unsigned char)input[i]);
+        } else {
+          output[j++] = input[i];
+        }
+        break;
+    }
+  }
+  output[j] = '\0';
+}
+
+static void C_CodeGenAddStringData(const char *label, const String *str) {
+  char escaped[MAX_LITERAL_LENGTH];
+  C_CodeGenEscapeString(StringGetCstr(str), escaped, sizeof(escaped));
+  char line[MAX_LITERAL_LENGTH * 2];
+  snprintf(line, sizeof(line), "%s: db \"%s\", 0", label, escaped);
+  arrput(cg_string_data, StringCreate(line));
+}
+
+String *C_CodeGenEmit(C_AstProgram *program) {
+  C_CodeGenResetStringState();
+  String *lines = NULL;
+
+  arrput(lines, StringCreate("global _start"));
+  arrput(lines, StringCreate(""));
+  arrput(lines, StringCreate("section .text"));
+  arrput(lines, StringCreate("_start:"));
+  arrput(lines, StringCreate("    call main"));
+  arrput(lines, StringCreate(""));
+  arrput(lines, StringCreate("    mov rdi, rax"));
+  arrput(lines, StringCreate("    mov rax, 60"));
+  arrput(lines, StringCreate("    syscall"));
+  arrput(lines, StringCreate(""));
 
   for (int i = 0; i < arrlen(program->function_declarations); i++) {
-    char **function_lines =
+    String *function_lines =
         C_CodeGenEmitFunctionDeclaration(program->function_declarations[i]);
 
     for (int i = 0; i < arrlen(function_lines); i++) {
@@ -38,33 +99,56 @@ char **C_CodeGenEmit(C_AstProgram *program) {
     arrfree(function_lines);
   }
 
+  if (arrlen(cg_string_data) > 0) {
+    arrput(lines, StringCreate(""));
+    arrput(lines, StringCreate("section .data"));
+    for (int i = 0; i < arrlen(cg_string_data); i++) {
+      arrput(lines, cg_string_data[i]);
+    }
+  }
+
+  arrfree(cg_string_data);
+  cg_string_data = NULL;
+  cg_string_count = 0;
+
   return lines;
 }
 
-char **C_CodeGenEmitConstant(C_AstConstant *constant) {
-  char **lines = NULL;
+String *C_CodeGenEmitConstant(C_AstConstant *constant) {
+  String *lines = NULL;
 
-  char line[MAX_LITERAL_LENGTH];
-  snprintf(line, sizeof(line), "    mov rax, %d", constant->value.int_value);
-  arrput(lines, strdup(line));
+  if (constant->type == C_AST_CONSTANT_STRING) {
+    char label[MAX_LITERAL_LENGTH];
+    snprintf(label, sizeof(label), "str_%d", cg_string_count++);
+
+    String code_line = StringCreateEmpty(0);
+    StringPrintf(&code_line, "    lea rax, [rel %s]", label);
+    arrput(lines, code_line);
+
+    C_CodeGenAddStringData(label, &constant->value.string_value);
+  } else {
+    String line = StringCreateEmpty(0);
+    StringPrintf(&line, "    mov rax, %d", constant->value.int_value);
+    arrput(lines, line);
+  }
 
   return lines;
 }
 
-char **C_CodeGenEmitFunctionCall(C_AstFunctionCall *function_call,
-                                 const char        *assign_to_variable) {
-  char **lines = NULL;
+String *C_CodeGenEmitFunctionCall(C_AstFunctionCall *function_call,
+                                  const String      *assign_to_variable) {
+  String *lines = NULL;
 
-  char function_label[MAX_LITERAL_LENGTH];
-  snprintf(function_label, sizeof(function_label), "    call %s",
-           StringGetCstr(&function_call->function_name));
-  arrput(lines, strdup(function_label));
+  String function_label = StringCreateEmpty(0);
+  StringPrintf(&function_label, "    call %s",
+               StringGetCstr(&function_call->function_name));
+  arrput(lines, function_label);
 
   if (assign_to_variable) {
-    char assignment_line[MAX_LITERAL_LENGTH];
-    snprintf(assignment_line, sizeof(assignment_line), "    mov qword %s, rax",
-             assign_to_variable);
-    arrput(lines, strdup(assignment_line));
+    String assignment_line = StringCreateEmpty(0);
+    StringPrintf(&assignment_line, "    mov qword %s, rax",
+                 StringGetCstr(assign_to_variable));
+    arrput(lines, assignment_line);
   }
 
   return lines;
@@ -99,51 +183,51 @@ char **C_CodeGenEmitFunctionCall(C_AstFunctionCall *function_call,
 //     pop rbp
 //     ret
 
-char **C_CodeGenEmitVariableAssignment(C_AstVariableAssignment *assignment,
-                                       int *current_offset) {
-  char **lines = NULL;
+String *C_CodeGenEmitVariableAssignment(C_AstVariableAssignment *assignment,
+                                        int *current_offset) {
+  String *lines = NULL;
 
-  arrput(lines, strdup(""));
+  arrput(lines, StringCreate(""));
   // TODO: get size of the variable type
-  arrput(lines, strdup("    sub rsp, 8"));
+  arrput(lines, StringCreate("    sub rsp, 8"));
 
   *current_offset += 8;
 
-  char variable_label[MAX_LITERAL_LENGTH];
-  snprintf(variable_label, sizeof(variable_label), "    %%define %s [rbp-%d]",
-           StringGetCstr(&assignment->variable_name), *current_offset);
-  arrput(lines, strdup(variable_label));
-  arrput(lines, strdup(""));
+  String variable_label = StringCreateEmpty(0);
+  StringPrintf(&variable_label, "    %%define %s [rbp-%d]",
+               StringGetCstr(&assignment->variable_name), *current_offset);
+  arrput(lines, variable_label);
+  arrput(lines, StringCreate(""));
 
   return lines;
 }
 
-char **C_CodeGenEmitExpression(C_AstExpression *expression,
-                               int             *current_offset) {
-  char **lines = NULL;
+String *C_CodeGenEmitExpression(C_AstExpression *expression,
+                                int             *current_offset) {
+  String *lines = NULL;
 
   switch (expression->type) {
     case C_CONSTANT: {
-      char **constant_lines = C_CodeGenEmitConstant(expression->constant);
+      String *constant_lines = C_CodeGenEmitConstant(expression->constant);
       ADD_TO_LINES(constant_lines);
       arrfree(constant_lines);
       break;
     }
     case C_FUNCTION_CALL: {
-      char **function_call_lines =
+      String *function_call_lines =
           C_CodeGenEmitFunctionCall(expression->function_call, NULL);
       ADD_TO_LINES(function_call_lines);
       arrfree(function_call_lines);
       break;
     }
     case C_VARIABLE: {
-      char **variable_lines = C_CodeGenEmitVariable(expression->variable);
+      String *variable_lines = C_CodeGenEmitVariable(expression->variable);
       ADD_TO_LINES(variable_lines);
       arrfree(variable_lines);
       break;
     }
     case C_BINARY_EXPRESSION: {
-      char **binary_expression_lines =
+      String *binary_expression_lines =
           C_CodeGenEmitBinaryExpression(expression->binary, current_offset);
       ADD_TO_LINES(binary_expression_lines);
       arrfree(binary_expression_lines);
@@ -158,44 +242,40 @@ char **C_CodeGenEmitExpression(C_AstExpression *expression,
   return lines;
 }
 
-char **C_CodeGenEmitBinaryExpression(C_AstBinaryExpression *binary,
-                                     int                   *current_offset) {
-  char **lines = NULL;
+String *C_CodeGenEmitBinaryExpression(C_AstBinaryExpression *binary,
+                                      int                   *current_offset) {
+  String *lines = NULL;
 
-  char **lhs_lines = C_CodeGenEmitExpression(binary->lhs, current_offset);
+  String *lhs_lines = C_CodeGenEmitExpression(binary->lhs, current_offset);
   ADD_TO_LINES(lhs_lines);
   arrfree(lhs_lines);
 
-  arrput(lines, strdup("    push rax"));
+  arrput(lines, StringCreate("    push rax"));
 
-  char **rhs_lines = C_CodeGenEmitExpression(binary->rhs, current_offset);
+  String *rhs_lines = C_CodeGenEmitExpression(binary->rhs, current_offset);
   ADD_TO_LINES(rhs_lines);
   arrfree(rhs_lines);
 
-  arrput(lines, strdup("    pop rbx"));
+  arrput(lines, StringCreate("    pop rbx"));
 
   switch (binary->symbol) {
-    case '+': {
-      arrput(lines, strdup("    add rax, rbx"));
+    case '+':
+      arrput(lines, StringCreate("    add rax, rbx"));
       break;
-    }
-    case '-': {
-      arrput(lines, strdup("    sub rbx, rax"));
-      arrput(lines, strdup("    mov rax, rbx"));
+    case '-':
+      arrput(lines, StringCreate("    sub rbx, rax"));
+      arrput(lines, StringCreate("    mov rax, rbx"));
       break;
-    }
-    case '*': {
-      arrput(lines, strdup("    imul rax, rbx"));
+    case '*':
+      arrput(lines, StringCreate("    imul rax, rbx"));
       break;
-    }
-    case '/': {
-      arrput(lines, strdup("    mov rdx, 0"));
-      arrput(lines, strdup("    mov rcx, rax"));
-      arrput(lines, strdup("    mov rax, rbx"));
+    case '/':
+      arrput(lines, StringCreate("    mov rdx, 0"));
+      arrput(lines, StringCreate("    mov rcx, rax"));
+      arrput(lines, StringCreate("    mov rax, rbx"));
       // NOTE: remainder in rdx
-      arrput(lines, strdup("    idiv rcx"));
+      arrput(lines, StringCreate("    idiv rcx"));
       break;
-    }
     default:
       EXIT_WITH_ERROR("Received inproper binary operator symbol: %c",
                       binary->symbol);
@@ -204,22 +284,22 @@ char **C_CodeGenEmitBinaryExpression(C_AstBinaryExpression *binary,
   return lines;
 }
 
-char **C_CodeGenEmitVariable(C_AstVariable *variable) {
-  char **lines = NULL;
+String *C_CodeGenEmitVariable(C_AstVariable *variable) {
+  String *lines = NULL;
 
-  char load_line[MAX_LITERAL_LENGTH];
-  snprintf(load_line, sizeof(load_line), "    mov rax, qword %s",
-           StringGetCstr(&variable->name));
-  arrput(lines, strdup(load_line));
+  String load_line = StringCreateEmpty(0);
+  StringPrintf(&load_line, "    mov rax, qword %s",
+               StringGetCstr(&variable->name));
+  arrput(lines, load_line);
 
   return lines;
 }
 
-char **C_CodeGenEmitReturn(C_AstReturn *ret, int *current_offset) {
-  char **lines = NULL;
+String *C_CodeGenEmitReturn(C_AstReturn *ret, int *current_offset) {
+  String *lines = NULL;
 
   if (ret->value) {
-    char **expression_lines =
+    String *expression_lines =
         C_CodeGenEmitExpression(ret->value, current_offset);
     ADD_TO_LINES(expression_lines);
     arrfree(expression_lines);
@@ -228,39 +308,39 @@ char **C_CodeGenEmitReturn(C_AstReturn *ret, int *current_offset) {
   return lines;
 }
 
-char **C_CodeGenEmitStatement(C_AstStatement *statement, int *current_offset) {
-  char **lines = NULL;
+String *C_CodeGenEmitStatement(C_AstStatement *statement, int *current_offset) {
+  String *lines = NULL;
 
   switch (statement->type) {
     case C_STATEMENT_BLOCK: {
-      char **block_lines = C_CodeGenEmitBlock(statement->block, current_offset);
+      String *block_lines = C_CodeGenEmitBlock(statement->block, current_offset);
       ADD_TO_LINES(block_lines);
       arrfree(block_lines);
       break;
     }
     case C_STATEMENT_RETURN: {
-      char **return_lines =
+      String *return_lines =
           C_CodeGenEmitReturn(statement->return_statement, current_offset);
       ADD_TO_LINES(return_lines);
       arrfree(return_lines);
       break;
     }
     case C_STATEMENT_FUNCTION_DECLARATION: {
-      char **function_declaration_lines =
+      String *function_declaration_lines =
           C_CodeGenEmitFunctionDeclaration(statement->function_declaration);
       ADD_TO_LINES(function_declaration_lines);
       arrfree(function_declaration_lines);
       break;
     }
     case C_STATEMENT_EXPRESSION: {
-      char **expression_lines =
+      String *expression_lines =
           C_CodeGenEmitExpression(statement->expression, current_offset);
       ADD_TO_LINES(expression_lines);
       arrfree(expression_lines);
       break;
     }
     case C_STATEMENT_ASSIGNMENT: {
-      char **assignment_lines = C_CodeGenEmitVariableAssignment(
+      String *assignment_lines = C_CodeGenEmitVariableAssignment(
           statement->assignment, current_offset);
       ADD_TO_LINES(assignment_lines);
       arrfree(assignment_lines);
@@ -268,32 +348,30 @@ char **C_CodeGenEmitStatement(C_AstStatement *statement, int *current_offset) {
       if (statement->assignment->expression) {
         switch (statement->assignment->expression->type) {
           case C_FUNCTION_CALL: {
-            char **function_call_lines = C_CodeGenEmitFunctionCall(
+            String *function_call_lines = C_CodeGenEmitFunctionCall(
                 statement->assignment->expression->function_call,
-                StringGetCstr(&statement->assignment->variable_name));
+                &statement->assignment->variable_name);
             ADD_TO_LINES(function_call_lines);
             arrfree(function_call_lines);
             break;
           }
           default: {
-            char **expression_lines = C_CodeGenEmitExpression(
+            String *expression_lines = C_CodeGenEmitExpression(
                 statement->assignment->expression, current_offset);
             ADD_TO_LINES(expression_lines);
             arrfree(expression_lines);
 
-            char assignment_line[MAX_LITERAL_LENGTH];
-            snprintf(assignment_line, sizeof(assignment_line),
-                     "    mov qword %s, rax",
-                     StringGetCstr(&statement->assignment->variable_name));
-            arrput(lines, strdup(assignment_line));
+            String assignment_line = StringCreateEmpty(0);
+            StringPrintf(&assignment_line, "    mov qword %s, rax",
+                         StringGetCstr(&statement->assignment->variable_name));
+            arrput(lines, assignment_line);
           }
         }
       }
       break;
     }
-    case C_STATEMENT_NOOP: {
+    case C_STATEMENT_NOOP:
       break;
-    }
     default:
       arrfree(lines);
       EXIT_WITH_ERROR("Got unsupported type for statement emit: %d\n",
@@ -303,11 +381,11 @@ char **C_CodeGenEmitStatement(C_AstStatement *statement, int *current_offset) {
   return lines;
 }
 
-char **C_CodeGenEmitBlock(C_AstBlock *block, int *current_offset) {
-  char **lines = NULL;
+String *C_CodeGenEmitBlock(C_AstBlock *block, int *current_offset) {
+  String *lines = NULL;
 
   for (int i = 0; i < arrlen(block->statements); i++) {
-    char **statement_lines =
+    String *statement_lines =
         C_CodeGenEmitStatement(block->statements[i], current_offset);
 
     ADD_TO_LINES(statement_lines);
@@ -317,29 +395,29 @@ char **C_CodeGenEmitBlock(C_AstBlock *block, int *current_offset) {
   return lines;
 }
 
-char **C_CodeGenEmitFunctionDeclaration(
+String *C_CodeGenEmitFunctionDeclaration(
     C_AstFunctionDeclaration *function_declaration) {
-  char **lines = NULL;
+  String *lines = NULL;
 
-  char function_label[MAX_LITERAL_LENGTH];
-  snprintf(function_label, sizeof(function_label),
-           "%s:", StringGetCstr(&function_declaration->function_name));
-  arrput(lines, strdup(function_label));
+  String function_label = StringCreateEmpty(0);
+  StringPrintf(&function_label, "%s:",
+               StringGetCstr(&function_declaration->function_name));
+  arrput(lines, function_label);
 
-  arrput(lines, strdup("    push rbp"));
-  arrput(lines, strdup("    mov rbp, rsp"));
+  arrput(lines, StringCreate("    push rbp"));
+  arrput(lines, StringCreate("    mov rbp, rsp"));
 
-  int    current_offset = 0;
-  char **body_lines =
+  int     current_offset = 0;
+  String *body_lines =
       C_CodeGenEmitBlock(function_declaration->body, &current_offset);
   ADD_TO_LINES(body_lines);
   arrfree(body_lines);
 
-  arrput(lines, strdup(""));
-  arrput(lines, strdup("    mov rsp, rbp"));
-  arrput(lines, strdup("    pop rbp"));
-  arrput(lines, strdup("    ret"));
-  arrput(lines, strdup(""));
+  arrput(lines, StringCreate(""));
+  arrput(lines, StringCreate("    mov rsp, rbp"));
+  arrput(lines, StringCreate("    pop rbp"));
+  arrput(lines, StringCreate("    ret"));
+  arrput(lines, StringCreate(""));
 
   return lines;
 }
