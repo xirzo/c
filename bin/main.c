@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     C_ParserFreeProgram(program);
     C_ParserFree(parser);
     StringFree(&asm_filename);
-    EXIT_WITH_ERROR("Failed to open file for writing\n");
+    EXIT_WITH_ERROR("Failed to open file for writing");
   }
 
   char **asm_lines = C_CodeGenEmit(program);

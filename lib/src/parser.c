@@ -68,8 +68,24 @@ C_Token C_ParserPeekAhead(C_Parser *parser) {
 
 C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
   C_AstConstant *constant = malloc(sizeof(C_AstConstant));
-  constant->type = C_AST_CONSTANT_INT;
-  constant->value.int_value = atoi(StringGetCstr(&parser->current_token.string));
+
+  switch (parser->current_token.type) {
+    case C_INTEGER_LITERAL:
+      constant->type = C_AST_CONSTANT_INT;
+      constant->value.int_value =
+          atoi(StringGetCstr(&parser->current_token.string));
+      break;
+    case C_STRING_LITERAL:
+      constant->type               = C_AST_CONSTANT_STRING;
+      constant->value.string_value = parser->current_token.string;
+      break;
+
+    default:
+      free(constant);
+      EXIT_WITH_ERROR("Cannot parse a constant from token, \"%s\"",
+                      C_TokenTypeToString(parser->current_token.type));
+  }
+
   C_ParserAdvance(parser);
   return constant;
 }
@@ -254,6 +270,9 @@ C_AstExpression *C_ParserParseExpressionWithPrecedence(
     }
 
     case C_STRING_LITERAL: {
+      lhs->type     = C_CONSTANT;
+      lhs->constant = C_ParserParseConstant(parser);
+      break;
     }
 
     case C_IDENTIFIER: {
