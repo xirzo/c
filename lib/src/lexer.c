@@ -89,25 +89,42 @@ C_Lexer *C_LexerCreate(const char *source) {
   return lexer;
 }
 
-String C_AllocateSubstring(const char *source, size_t start_position,
-                           size_t end_position) {
-  assert(start_position <= end_position);
+static String C_SourceSubstring(const C_Lexer *lexer, size_t start_position,
+                                size_t end_position) {
+  String source_view = {.data = (char *)lexer->source,
+                        .length = lexer->source_length,
+                        .capacity = lexer->source_length};
+  String result = StringSubstring(&source_view, start_position,
+                                  end_position - start_position);
+  LOG_DEBUG("Substring: \"%s\", Length: %zu\n", StringGetCstr(&result),
+            result.length);
+  return result;
+}
 
-  String s = StringCreateEmpty(end_position - start_position + 1);
+C_Token C_LexerLexString(C_Lexer *lexer) {
+  C_LexerAdvance(lexer);
+  size_t start_position = lexer->current_position;
 
-  for (size_t i = start_position; i < end_position; i++) {
-    StringAppendChar(&s, source[i]);
+  LOG_DEBUG("Lexing a string\n");
+  LOG_DEBUG("Current position %zu\n", lexer->current_position);
+
+  while (lexer->current_char != '"') {
+    LOG_DEBUG("%c\n", lexer->current_char);
+    C_LexerAdvance(lexer);
   }
 
-  LOG_DEBUG("Substring: %s, Length: %zu\n", StringGetCstr(&s), s.length);
+  size_t end_position = lexer->current_position;
+  C_LexerAdvance(lexer);
 
-  return s;
+  String string = C_SourceSubstring(lexer, start_position, end_position);
+
+  return C_LexerCreateToken(lexer, C_STRING_LITERAL, string, '\0');
 }
 
 C_Token C_LexerLexNumber(C_Lexer *lexer) {
   size_t start_position = lexer->current_position;
 
-  LOG_DEBUG("Lexing number\n");
+  LOG_DEBUG("Lexing a number\n");
   LOG_DEBUG("Current position %zu\n", lexer->current_position);
 
   while (isdigit(lexer->current_char)) {
@@ -116,8 +133,7 @@ C_Token C_LexerLexNumber(C_Lexer *lexer) {
   }
 
   size_t end_position = lexer->current_position;
-  String number =
-      C_AllocateSubstring(lexer->source, start_position, end_position);
+  String number = C_SourceSubstring(lexer, start_position, end_position);
 
   return C_LexerCreateToken(lexer, C_INTEGER_LITERAL, number, '\0');
 }
@@ -134,8 +150,7 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
   }
 
   size_t end_position = lexer->current_position;
-  String word =
-      C_AllocateSubstring(lexer->source, start_position, end_position);
+  String word = C_SourceSubstring(lexer, start_position, end_position);
 
   C_TokenType type      = C_IDENTIFIER;
   const char *word_cstr = StringGetCstr(&word);
@@ -221,6 +236,11 @@ C_Token *C_LexerLex(C_Lexer *lexer) {
                                           lexer->current_char));
         C_LexerAdvance(lexer);
         break;
+
+      case '"':
+        arrput(tokens, C_LexerLexString(lexer));
+        break;
+
       default: {
         if (isdigit(lexer->current_char)) {
           arrput(tokens, C_LexerLexNumber(lexer));
@@ -268,6 +288,8 @@ const char *C_TokenTypeToString(C_TokenType type) {
       return "C_IDENTIFIER";
     case C_INTEGER_LITERAL:
       return "C_INTEGER_LITERAL";
+    case C_STRING_LITERAL:
+      return "C_STRING_LITERAL";
     case C_INTEGER:
       return "C_INTEGER";
     case C_RETURN:

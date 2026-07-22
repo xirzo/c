@@ -45,7 +45,7 @@ char **C_CodeGenEmitConstant(C_AstConstant *constant) {
   char **lines = NULL;
 
   char line[MAX_LITERAL_LENGTH];
-  snprintf(line, sizeof(line), "    mov rax, %d", constant->value);
+  snprintf(line, sizeof(line), "    mov rax, %d", constant->value.int_value);
   arrput(lines, strdup(line));
 
   return lines;

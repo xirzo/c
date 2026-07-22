@@ -35,7 +35,7 @@ void test_parse_function_declaration(void) {
   C_AstStatement *stmt = func->body->statements[0];
   TEST_ASSERT_EQUAL(C_STATEMENT_RETURN, stmt->type);
   TEST_ASSERT_NOT_NULL(stmt->return_statement);
-  TEST_ASSERT_EQUAL(0, stmt->return_statement->value->constant->value);
+  TEST_ASSERT_EQUAL(0, stmt->return_statement->value->constant->value.int_value);
 
   C_AstFreeFunctionDeclaration(func);
   C_ParserFree(parser);
@@ -44,6 +44,7 @@ void test_parse_function_declaration(void) {
 }
 
 int main(void) {
+  setvbuf(stdout, NULL, _IONBF, 0);
   UNITY_BEGIN();
 
   RUN_TEST(test_parse_function_declaration);

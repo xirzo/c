@@ -8,6 +8,7 @@ typedef enum {
   C_IDENTIFIER = 0,
 
   C_INTEGER_LITERAL,
+  C_STRING_LITERAL,
 
   C_INTEGER,
   C_VOID,

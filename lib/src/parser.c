@@ -68,7 +68,8 @@ C_Token C_ParserPeekAhead(C_Parser *parser) {
 
 C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
   C_AstConstant *constant = malloc(sizeof(C_AstConstant));
-  constant->value         = atoi(StringGetCstr(&parser->current_token.string));
+  constant->type = C_AST_CONSTANT_INT;
+  constant->value.int_value = atoi(StringGetCstr(&parser->current_token.string));
   C_ParserAdvance(parser);
   return constant;
 }

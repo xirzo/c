@@ -22,6 +22,32 @@ void test_lex_numbers(void) {
   C_LexerFreeTokens(tokens);
 }
 
+void test_lex_string(void) {
+  const char source[1024] = "\"Hello, World\"";
+  C_Lexer   *lexer        = C_LexerCreate(source);
+  C_Token   *tokens       = C_LexerLex(lexer);
+
+  TEST_ASSERT_EQUAL_STRING("Hello, World", StringGetCstr(&tokens[0].string));
+  TEST_ASSERT_EQUAL(C_STRING_LITERAL, tokens[0].type);
+
+  C_LexerFree(lexer);
+  C_LexerFreeTokens(tokens);
+}
+
+void test_lex_multiple_strings(void) {
+  const char source[1024] = "\"Hello, World\" \"Hello, Seaman\"";
+  C_Lexer   *lexer        = C_LexerCreate(source);
+  C_Token   *tokens       = C_LexerLex(lexer);
+
+  TEST_ASSERT_EQUAL_STRING("Hello, World", StringGetCstr(&tokens[0].string));
+  TEST_ASSERT_EQUAL(C_STRING_LITERAL, tokens[0].type);
+  TEST_ASSERT_EQUAL_STRING("Hello, Seaman", StringGetCstr(&tokens[1].string));
+  TEST_ASSERT_EQUAL(C_STRING_LITERAL, tokens[1].type);
+
+  C_LexerFree(lexer);
+  C_LexerFreeTokens(tokens);
+}
+
 void test_default_main(void) {
   const char source[1024] =
       "int main() {"
@@ -47,9 +73,12 @@ void test_default_main(void) {
 }
 
 int main(void) {
+  setvbuf(stdout, NULL, _IONBF, 0);
   UNITY_BEGIN();
 
   RUN_TEST(test_lex_numbers);
+  RUN_TEST(test_lex_string);
+  RUN_TEST(test_lex_multiple_strings);
   RUN_TEST(test_default_main);
   return UNITY_END();
 }

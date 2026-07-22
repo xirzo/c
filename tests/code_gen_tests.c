@@ -68,6 +68,7 @@ void test_code_gen_main_function(void) {
 }
 
 int main(void) {
+  setvbuf(stdout, NULL, _IONBF, 0);
   UNITY_BEGIN();
 
   RUN_TEST(test_code_gen_main_function);
