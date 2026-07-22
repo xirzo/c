@@ -28,6 +28,7 @@ typedef enum {
   C_RBRACE,
   C_SEMICOLON,
   C_ASSIGN,
+  C_AMPERSAND,
   C_EOF,
 } C_TokenType;
 

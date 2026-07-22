@@ -17,5 +17,7 @@ String *C_CodeGenEmitBinaryExpression(C_AstBinaryExpression *binary,
 String *C_CodeGenEmitExpression(C_AstExpression *expression,
                                 int             *current_offset);
 String *C_CodeGenEmitVariable(C_AstVariable *variable);
+String *C_CodeGenEmitUnaryExpression(C_AstUnaryExpression *unary,
+                                     int                  *current_offset);
 
 #endif  // !CODE_GENERATOR

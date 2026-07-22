@@ -115,6 +115,33 @@ static int C_ParseCharEscape(const char *str, size_t *offset) {
   }
 }
 
+static int C_ParsePointerDepth(C_Parser *parser) {
+  int depth = 0;
+  while (parser->current_token.type == C_ASTERISK) {
+    depth++;
+    C_ParserAdvance(parser);
+  }
+  return depth;
+}
+
+static bool C_IsFunctionDeclaration(C_Parser *parser) {
+  size_t pos = parser->current_position + 1;
+  size_t len = arrlenu(parser->tokens);
+
+  if (pos >= len)
+    return false;
+
+  while (pos < len && parser->tokens[pos].type == C_ASTERISK) {
+    pos++;
+  }
+
+  if (pos >= len || parser->tokens[pos].type != C_IDENTIFIER)
+    return false;
+  pos++;
+
+  return pos < len && parser->tokens[pos].type == C_LPAREN;
+}
+
 C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
   C_AstConstant *constant = malloc(sizeof(C_AstConstant));
 
@@ -185,7 +212,8 @@ C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
   switch (parser->current_token.type) {
     case C_INTEGER:
     case C_CHAR:
-      if (C_ParserPeekAhead(parser).type == C_LPAREN) {
+    case C_VOID:
+      if (C_IsFunctionDeclaration(parser)) {
         statement->type = C_STATEMENT_FUNCTION_DECLARATION;
         statement->function_declaration =
             C_ParserParseFunctionDeclaration(parser);
@@ -251,6 +279,8 @@ C_AstVariableAssignment *C_ParserParseVariableAssignment(C_Parser *parser) {
   C_AstVariableAssignment *assignment = malloc(sizeof(C_AstVariableAssignment));
 
   C_ParserAdvance(parser);
+
+  assignment->pointer_depth = C_ParsePointerDepth(parser);
 
   if (parser->current_token.type != C_IDENTIFIER) {
     C_ErrorReportWithToken(parser->error_context,
@@ -330,6 +360,36 @@ C_AstExpression *C_ParserParseExpressionWithPrecedence(
     case C_STRING_LITERAL: {
       lhs->type     = C_CONSTANT;
       lhs->constant = C_ParserParseConstant(parser);
+      break;
+    }
+
+    case C_ASTERISK: {
+      C_ParserAdvance(parser);
+      C_AstExpression *operand =
+          C_ParserParseExpressionWithPrecedence(parser, 5);
+      if (!operand) {
+        free(lhs);
+        return NULL;
+      }
+      lhs->type          = C_UNARY_EXPRESSION;
+      lhs->unary         = malloc(sizeof(C_AstUnaryExpression));
+      lhs->unary->type   = C_UNARY_DEREF;
+      lhs->unary->operand = operand;
+      break;
+    }
+
+    case C_AMPERSAND: {
+      C_ParserAdvance(parser);
+      C_AstExpression *operand =
+          C_ParserParseExpressionWithPrecedence(parser, 5);
+      if (!operand) {
+        free(lhs);
+        return NULL;
+      }
+      lhs->type           = C_UNARY_EXPRESSION;
+      lhs->unary          = malloc(sizeof(C_AstUnaryExpression));
+      lhs->unary->type    = C_UNARY_ADDRESS_OF;
+      lhs->unary->operand = operand;
       break;
     }
 
@@ -510,6 +570,8 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser) {
 
   C_ParserAdvance(parser);
 
+  C_ParsePointerDepth(parser);
+
   if (parser->current_token.type != C_IDENTIFIER) {
     C_ErrorReportWithToken(parser->error_context,
                            "Expected function name after type",
@@ -562,7 +624,8 @@ C_AstProgram *C_ParserParse(C_Parser *parser) {
   while (parser->current_token.type != C_EOF) {
     switch (parser->current_token.type) {
       case C_INTEGER:
-      case C_CHAR: {
+      case C_CHAR:
+      case C_VOID: {
         C_AstFunctionDeclaration *decl =
             C_ParserParseFunctionDeclaration(parser);
         if (decl) {
@@ -596,6 +659,7 @@ void C_ParserSynchronize(C_Parser *parser) {
       case C_RETURN:
       case C_INTEGER:
       case C_CHAR:
+      case C_VOID:
         return;
       default:
         C_ParserAdvance(parser);
@@ -607,7 +671,8 @@ void C_ParserSynchronize(C_Parser *parser) {
 void C_ParserSynchronizeToDeclaration(C_Parser *parser) {
   while (parser->current_token.type != C_EOF) {
     if ((parser->current_token.type == C_INTEGER ||
-         parser->current_token.type == C_CHAR) &&
+         parser->current_token.type == C_CHAR ||
+         parser->current_token.type == C_VOID) &&
         C_ParserPeek(parser).type == C_IDENTIFIER &&
         C_ParserPeekAhead(parser).type == C_LPAREN) {
       return;
@@ -646,6 +711,10 @@ void C_AstFreeExpression(C_AstExpression *expression) {
       break;
     case C_VARIABLE:
       C_AstFreeVariable(expression->variable);
+      break;
+    case C_UNARY_EXPRESSION:
+      C_AstFreeExpression(expression->unary->operand);
+      free(expression->unary);
       break;
     default:
       EXIT_WITH_ERROR("Got unknown expression to free: %d\n", expression->type);

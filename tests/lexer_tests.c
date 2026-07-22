@@ -109,6 +109,17 @@ void test_lex_char_keyword(void) {
   C_LexerFreeTokens(tokens);
 }
 
+void test_lex_ampersand(void) {
+  const char source[1024] = "&";
+  C_Lexer   *lexer        = C_LexerCreate(source);
+  C_Token   *tokens       = C_LexerLex(lexer);
+
+  TEST_ASSERT_EQUAL(C_AMPERSAND, tokens[0].type);
+
+  C_LexerFree(lexer);
+  C_LexerFreeTokens(tokens);
+}
+
 int main(void) {
   setvbuf(stdout, NULL, _IONBF, 0);
   UNITY_BEGIN();
@@ -119,6 +130,7 @@ int main(void) {
   RUN_TEST(test_lex_char);
   RUN_TEST(test_lex_char_escape);
   RUN_TEST(test_lex_char_keyword);
+  RUN_TEST(test_lex_ampersand);
   RUN_TEST(test_default_main);
   return UNITY_END();
 }

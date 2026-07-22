@@ -15,16 +15,19 @@ typedef enum {
 } C_AstConstantType;
 
 typedef enum {
-  // NOTE: maybe should separate
-  // into different types of literals
   C_CONSTANT,
   C_FUNCTION_CALL,
   C_VARIABLE,
   C_BINARY_EXPRESSION,
+  C_UNARY_EXPRESSION,
 } C_AstExpressionType;
 
+typedef enum {
+  C_UNARY_DEREF,
+  C_UNARY_ADDRESS_OF,
+} C_AstUnaryExpressionType;
+
 typedef struct {
-  // NOTE: for now only int
   C_AstConstantType type;
   union {
     int    int_value;
@@ -46,6 +49,11 @@ typedef struct {
   C_AstExpression *rhs;
 } C_AstBinaryExpression;
 
+typedef struct {
+  C_AstUnaryExpressionType type;
+  C_AstExpression         *operand;
+} C_AstUnaryExpression;
+
 typedef struct C_AstExpression {
   C_AstExpressionType type;
 
@@ -54,6 +62,7 @@ typedef struct C_AstExpression {
     C_AstFunctionCall     *function_call;
     C_AstVariable         *variable;
     C_AstBinaryExpression *binary;
+    C_AstUnaryExpression  *unary;
   };
 } C_AstExpression;
 
@@ -82,6 +91,7 @@ typedef struct {
 typedef struct {
   String           variable_name;
   C_AstExpression *expression;
+  int              pointer_depth;
 } C_AstVariableAssignment;
 
 typedef struct C_AstStatement {
@@ -120,7 +130,6 @@ C_AstProgram *C_ParserParse(C_Parser *parser);
 void          C_ParserFree(C_Parser *parser);
 void          C_ParserFreeProgram(C_AstProgram *program);
 
-// NOTE: in fact not a part of public api, but can be used
 void    C_ParserAdvance(C_Parser *parser);
 C_Token C_ParserPeek(C_Parser *parser);
 

@@ -233,6 +233,13 @@ String *C_CodeGenEmitExpression(C_AstExpression *expression,
       arrfree(binary_expression_lines);
       break;
     }
+    case C_UNARY_EXPRESSION: {
+      String *unary_lines =
+          C_CodeGenEmitUnaryExpression(expression->unary, current_offset);
+      ADD_TO_LINES(unary_lines);
+      arrfree(unary_lines);
+      break;
+    }
     default:
       arrfree(lines);
       EXIT_WITH_ERROR("Got unsupported type for expression emit: %d\n",
@@ -291,6 +298,35 @@ String *C_CodeGenEmitVariable(C_AstVariable *variable) {
   StringPrintf(&load_line, "    mov rax, qword %s",
                StringGetCstr(&variable->name));
   arrput(lines, load_line);
+
+  return lines;
+}
+
+String *C_CodeGenEmitUnaryExpression(C_AstUnaryExpression *unary,
+                                     int                  *current_offset) {
+  String *lines = NULL;
+
+  switch (unary->type) {
+    case C_UNARY_DEREF: {
+      String *operand_lines =
+          C_CodeGenEmitExpression(unary->operand, current_offset);
+      ADD_TO_LINES(operand_lines);
+      arrfree(operand_lines);
+      arrput(lines, StringCreate("    mov rax, qword [rax]"));
+      break;
+    }
+    case C_UNARY_ADDRESS_OF: {
+      if (unary->operand->type != C_VARIABLE) {
+        arrfree(lines);
+        EXIT_WITH_ERROR("Address-of requires a variable operand");
+      }
+      String address_line = StringCreateEmpty(0);
+      StringPrintf(&address_line, "    lea rax, %s",
+                   StringGetCstr(&unary->operand->variable->name));
+      arrput(lines, address_line);
+      break;
+    }
+  }
 
   return lines;
 }

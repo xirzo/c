@@ -270,6 +270,12 @@ C_Token *C_LexerLex(C_Lexer *lexer) {
         C_LexerAdvance(lexer);
         break;
 
+      case '&':
+        arrput(tokens, C_LexerCreateToken(lexer, C_AMPERSAND, (String){0},
+                                          lexer->current_char));
+        C_LexerAdvance(lexer);
+        break;
+
       case '\'':
         arrput(tokens, C_LexerLexChar(lexer));
         break;
@@ -355,6 +361,8 @@ const char *C_TokenTypeToString(C_TokenType type) {
       return "C_SEMICOLON";
     case C_ASSIGN:
       return "C_ASSIGN";
+    case C_AMPERSAND:
+      return "C_AMPERSAND";
     case C_VOID:
       return "C_VOID";
     case C_EOF:
