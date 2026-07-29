@@ -256,6 +256,68 @@ void test_parse_address_of_expression(void) {
   C_LexerFree(lexer);
 }
 
+void test_parse_if_statement(void) {
+  const char source[1024] =
+      "int main() {"
+      "  if (1) {"
+      "    return 0;"
+      "  }"
+      "  return 1;"
+      "}";
+
+  C_ErrorContext *error_context = C_ErrorContextCreate();
+  if (!error_context) {
+    fprintf(stderr, "Failed to allocate memory for error_context\n");
+    return;
+  }
+
+  C_Lexer  *lexer  = C_LexerCreate(source);
+  C_Token  *tokens = C_LexerLex(lexer);
+  C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
+
+  C_AstProgram *program = C_ParserParse(parser);
+
+  TEST_ASSERT_NOT_NULL(program);
+  TEST_ASSERT_EQUAL(1, arrlen(program->function_declarations));
+
+  C_AstFunctionDeclaration *func = program->function_declarations[0];
+  TEST_ASSERT_EQUAL(2, arrlen(func->body->statements));
+
+  C_AstStatement *if_stmt = func->body->statements[0];
+  TEST_ASSERT_EQUAL(C_STATEMENT_IF, if_stmt->type);
+  TEST_ASSERT_NOT_NULL(if_stmt->if_statement);
+  TEST_ASSERT_NOT_NULL(if_stmt->if_statement->condition);
+  TEST_ASSERT_EQUAL(C_CONSTANT, if_stmt->if_statement->condition->type);
+  TEST_ASSERT_EQUAL(
+      C_AST_CONSTANT_INT,
+      if_stmt->if_statement->condition->constant->type);
+  TEST_ASSERT_EQUAL(
+      1,
+      if_stmt->if_statement->condition->constant->value.int_value);
+  TEST_ASSERT_NOT_NULL(if_stmt->if_statement->block);
+  TEST_ASSERT_EQUAL(C_STATEMENT_BLOCK, if_stmt->if_statement->block->type);
+  TEST_ASSERT_EQUAL(1, arrlen(if_stmt->if_statement->block->block->statements));
+
+  C_AstStatement *body_stmt =
+      if_stmt->if_statement->block->block->statements[0];
+  TEST_ASSERT_EQUAL(C_STATEMENT_RETURN, body_stmt->type);
+  TEST_ASSERT_NOT_NULL(body_stmt->return_statement);
+  TEST_ASSERT_EQUAL(
+      0,
+      body_stmt->return_statement->value->constant->value.int_value);
+
+  C_AstStatement *ret_stmt = func->body->statements[1];
+  TEST_ASSERT_EQUAL(C_STATEMENT_RETURN, ret_stmt->type);
+  TEST_ASSERT_EQUAL(
+      1,
+      ret_stmt->return_statement->value->constant->value.int_value);
+
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
+  C_ErrorContextFree(error_context);
+  C_LexerFree(lexer);
+}
+
 int main(void) {
   setvbuf(stdout, NULL, _IONBF, 0);
   UNITY_BEGIN();
@@ -265,5 +327,6 @@ int main(void) {
   RUN_TEST(test_parse_char_declaration);
   RUN_TEST(test_parse_deref_expression);
   RUN_TEST(test_parse_address_of_expression);
+  RUN_TEST(test_parse_if_statement);
   return UNITY_END();
 }
