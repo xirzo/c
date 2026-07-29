@@ -195,6 +195,8 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
     type = C_RETURN;
   } else if (strcmp("if", word_cstr) == 0) {
     type = C_IF;
+  } else if (strcmp("else", word_cstr) == 0) {
+    type = C_ELSE;
   }
 
   return C_LexerCreateToken(lexer, type, word, '\0');
@@ -345,6 +347,8 @@ const char *C_TokenTypeToString(C_TokenType type) {
       return "C_RETURN";
     case C_IF:
       return "C_IF";
+    case C_ELSE:
+      return "C_ELSE";
     case C_PLUS:
       return "C_PLUS";
     case C_MINUS:

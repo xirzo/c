@@ -426,18 +426,46 @@ String *C_CodeGenEmitStatement(C_AstStatement *statement, int *current_offset) {
       StringPrintf(&test_line, "    test rax, rax");
       arrput(lines, test_line);
 
-      String jump_line = StringCreateEmpty(0);
-      StringPrintf(&jump_line, "    je .L_end_if_%d", label_id);
-      arrput(lines, jump_line);
+      if (statement->if_statement->has_else) {
+        String jump_line = StringCreateEmpty(0);
+        StringPrintf(&jump_line, "    je .L_else_%d", label_id);
+        arrput(lines, jump_line);
 
-      String *body_lines =
-          C_CodeGenEmitStatement(statement->if_statement->block, current_offset);
-      ADD_TO_LINES(body_lines);
-      arrfree(body_lines);
+        String *body_lines =
+            C_CodeGenEmitStatement(statement->if_statement->block, current_offset);
+        ADD_TO_LINES(body_lines);
+        arrfree(body_lines);
 
-      String label_line = StringCreateEmpty(0);
-      StringPrintf(&label_line, ".L_end_if_%d:", label_id);
-      arrput(lines, label_line);
+        String jmp_line = StringCreateEmpty(0);
+        StringPrintf(&jmp_line, "    jmp .L_end_if_%d", label_id);
+        arrput(lines, jmp_line);
+
+        String else_label = StringCreateEmpty(0);
+        StringPrintf(&else_label, ".L_else_%d:", label_id);
+        arrput(lines, else_label);
+
+        String *else_lines =
+            C_CodeGenEmitStatement(statement->if_statement->else_block, current_offset);
+        ADD_TO_LINES(else_lines);
+        arrfree(else_lines);
+
+        String end_label = StringCreateEmpty(0);
+        StringPrintf(&end_label, ".L_end_if_%d:", label_id);
+        arrput(lines, end_label);
+      } else {
+        String jump_line = StringCreateEmpty(0);
+        StringPrintf(&jump_line, "    je .L_end_if_%d", label_id);
+        arrput(lines, jump_line);
+
+        String *body_lines =
+            C_CodeGenEmitStatement(statement->if_statement->block, current_offset);
+        ADD_TO_LINES(body_lines);
+        arrfree(body_lines);
+
+        String end_label = StringCreateEmpty(0);
+        StringPrintf(&end_label, ".L_end_if_%d:", label_id);
+        arrput(lines, end_label);
+      }
       break;
     }
     default:

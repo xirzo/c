@@ -98,6 +98,9 @@ typedef struct {
 typedef struct {
   C_AstExpression *condition;
   C_AstStatement  *block;
+
+  bool has_else;
+  C_AstStatement *else_block;
 } C_AstIf;
 
 typedef struct C_AstStatement {

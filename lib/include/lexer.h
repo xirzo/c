@@ -17,6 +17,7 @@ typedef enum {
 
   C_RETURN,
   C_IF,
+  C_ELSE,
 
   C_PLUS,
   C_MINUS,
