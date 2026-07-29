@@ -28,6 +28,7 @@ srcs = [
   './lib/src/code_generator.c',
   './lib/src/str.c',
   './lib/src/error.c',
+  './lib/src/preprocessor.c',
 ]
 
 warning_suppression_flags = [

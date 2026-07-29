@@ -4,123 +4,202 @@
 #include "error.h"
 #include "lexer.h"
 #include "parser.h"
+#include "preprocessor.h"
 #include "stb_ds.h"
 #include "str.h"
 #include "utils.h"
 #include "xi_string.h"
 
 int main(int argc, char *argv[]) {
-  if (argc < 2) {
-    fprintf(stderr, "Usage: %s <source_file>\n", argv[0]);
-    return EXIT_FAILURE;
-  }
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <source_file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
 
-  String filepath = StringCreate(argv[1]);
+    String filepath = StringCreate(argv[1]);
 
-  if (!StringEndsWith(&filepath, ".c")) {
-    fprintf(stderr, "Provided file \"%s\" is not a c file (add .c format)\n",
-            StringGetCstr(&filepath));
-    return EXIT_FAILURE;
-  }
+    if (!StringEndsWith(&filepath, ".c")) {
+        fprintf(stderr, "Provided file \"%s\" is not a c file (add .c format)\n",
+                StringGetCstr(&filepath));
+        StringFree(&filepath);
+        return EXIT_FAILURE;
+    }
 
-  size_t  chunks_count    = 0;
-  String *filename_chunks = StringSplit(&filepath, ".", &chunks_count);
-  if (!filename_chunks || chunks_count != 2) {
-    StringFree(&filepath);
-    return EXIT_FAILURE;
-  }
+    size_t  chunks_count = 0;
+    String *filename_chunks = StringSplit(&filepath, ".", &chunks_count);
+    if (!filename_chunks || chunks_count != 2) {
+        StringFree(&filepath);
+        return EXIT_FAILURE;
+    }
 
-  String filename_no_format = StringDuplicate(&filename_chunks[0]);
+    String filename_no_format = StringDuplicate(&filename_chunks[0]);
 
-  for (size_t i = 0; i < chunks_count; i++) {
-    StringFree(&filename_chunks[i]);
-  }
-  free(filename_chunks);
+    for (size_t i = 0; i < chunks_count; i++) {
+        StringFree(&filename_chunks[i]);
+    }
+    free(filename_chunks);
 
-  LOG_DEBUG("Filename: %s\n", StringGetCstr(&filename_no_format));
+    LOG_DEBUG("Filename: %s\n", StringGetCstr(&filename_no_format));
 
-  char *source = C_ReadFileToBuffer(StringGetCstr(&filepath));
-  if (!source) {
-    StringFree(&filepath);
-    StringFree(&filename_no_format);
-    return EXIT_FAILURE;
-  }
+    char *source = C_ReadFileToBuffer(StringGetCstr(&filepath));
+    if (!source) {
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        return EXIT_FAILURE;
+    }
 
-  C_ErrorContext *error_context = C_ErrorContextCreate();
-  if (!error_context) {
-    fprintf(stderr, "Failed to allocate memory for error_context\n");
+    LOG_DEBUG("Original source length: %zu bytes\n", strlen(source));
+
+    String str_source = StringCreate(source);
     free(source);
-    StringFree(&filepath);
-    StringFree(&filename_no_format);
-    return EXIT_FAILURE;
-  }
 
-  C_Lexer *lexer  = C_LexerCreate(source);
-  C_Token *tokens = C_LexerLex(lexer);
+    LOG_DEBUG("Preprocessing source file...\n");
 
-  C_Parser *parser = C_ParserCreate(tokens, error_context, argv[1]);
+    const char *include_paths[] = {
+        ".",
+        "/usr/include",
+        "/usr/local/include",
+        "./include",
+        NULL
+    };
 
-  C_AstProgram *program = C_ParserParse(parser);
+    String processed_source = PreprocessorProcessWithIncludes(&str_source, include_paths);
 
-  if (C_ErrorContextHasErrors(error_context)) {
-    C_ErrorContextPrint(error_context, stderr);
+    if (!processed_source.data) {
+        LOG_DEBUG("ERROR: Failed to preprocess source file\n");
+        StringFree(&str_source);
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        return EXIT_FAILURE;
+    }
+
+    LOG_DEBUG("Preprocessed source length: %zu bytes\n", processed_source.length);
+
+    if (getenv("DEBUG_PREPROCESSOR")) {
+        printf("========== PREPROCESSED SOURCE ==========\n");
+        printf("%s\n", StringGetCstr(&processed_source));
+        printf("==========================================\n");
+    }
+
+    C_ErrorContext *error_context = C_ErrorContextCreate();
+    if (!error_context) {
+        fprintf(stderr, "Failed to allocate memory for error_context\n");
+        StringFree(&str_source);
+        StringFree(&processed_source);
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        return EXIT_FAILURE;
+    }
+
+    C_Lexer *lexer = C_LexerCreate(StringGetCstr(&processed_source));
+    if (!lexer) {
+        fprintf(stderr, "Failed to create lexer\n");
+        C_ErrorContextFree(error_context);
+        StringFree(&str_source);
+        StringFree(&processed_source);
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        return EXIT_FAILURE;
+    }
+
+    C_Token *tokens = C_LexerLex(lexer);
+
+    if (!tokens) {
+        fprintf(stderr, "Failed to tokenize source\n");
+        C_LexerFree(lexer);
+        C_ErrorContextFree(error_context);
+        StringFree(&str_source);
+        StringFree(&processed_source);
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        return EXIT_FAILURE;
+    }
+
+    C_Parser *parser = C_ParserCreate(tokens, error_context, argv[1]);
+    if (!parser) {
+        fprintf(stderr, "Failed to create parser\n");
+        C_LexerFree(lexer);
+        C_ErrorContextFree(error_context);
+        StringFree(&str_source);
+        StringFree(&processed_source);
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        return EXIT_FAILURE;
+    }
+
+    C_AstProgram *program = C_ParserParse(parser);
+
+    if (C_ErrorContextHasErrors(error_context)) {
+        C_ErrorContextPrint(error_context, stderr);
+        C_LexerFree(lexer);
+        C_ParserFreeProgram(&program);
+        C_ErrorContextFree(error_context);
+        C_ParserFree(&parser);
+        StringFree(&str_source);
+        StringFree(&processed_source);
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        return EXIT_FAILURE;
+    }
+
+    String asm_filename = StringDuplicate(&filename_no_format);
+    StringAppendCstr(&asm_filename, ".asm");
+
+    FILE *file = fopen(StringGetCstr(&asm_filename), "w");
+    if (!file) {
+        C_ParserFreeProgram(&program);
+        C_ParserFree(&parser);
+        StringFree(&asm_filename);
+        StringFree(&str_source);
+        StringFree(&processed_source);
+        StringFree(&filepath);
+        StringFree(&filename_no_format);
+        EXIT_WITH_ERROR("Failed to open file for writing");
+    }
+
+    String *asm_lines = C_CodeGenEmit(program);
+
+    for (int i = 0; i < arrlen(asm_lines); i++) {
+        fprintf(file, "%s\n", StringGetCstr(&asm_lines[i]));
+    }
+    fclose(file);
+
+    String object_filename = StringCreateEmpty(0);
+    StringPrintf(&object_filename, "%s.o", StringGetCstr(&filename_no_format));
+
+    String asm_command = StringCreateEmpty(30);
+    StringPrintf(&asm_command, "nasm -f elf64 %s -o %s",
+                 StringGetCstr(&asm_filename), StringGetCstr(&object_filename));
+
+    String ld_command = StringCreateEmpty(0);
+    StringPrintf(&ld_command, "ld %s -o %s", StringGetCstr(&object_filename),
+                 StringGetCstr(&filename_no_format));
+
+    LOG_DEBUG("Running: %s\n", StringGetCstr(&asm_command));
+    system(StringGetCstr(&asm_command));
+
+    LOG_DEBUG("Running: %s\n", StringGetCstr(&ld_command));
+    system(StringGetCstr(&ld_command));
+
+    for (int i = 0; i < arrlen(asm_lines); i++) {
+        StringFree(&asm_lines[i]);
+    }
+    arrfree(asm_lines);
+
     C_LexerFree(lexer);
     C_ParserFreeProgram(&program);
     C_ErrorContextFree(error_context);
     C_ParserFree(&parser);
-    free(source);
+
+    StringFree(&str_source);
+    StringFree(&processed_source);
     StringFree(&filepath);
     StringFree(&filename_no_format);
-    return EXIT_FAILURE;
-  }
-
-  String asm_filename = StringDuplicate(&filename_no_format);
-  StringAppendCstr(&asm_filename, ".asm");
-
-  FILE *file = fopen(StringGetCstr(&asm_filename), "w");
-
-  if (!file) {
-    C_ParserFreeProgram(&program);
-    C_ParserFree(&parser);
     StringFree(&asm_filename);
-    EXIT_WITH_ERROR("Failed to open file for writing");
-  }
+    StringFree(&object_filename);
+    StringFree(&asm_command);
+    StringFree(&ld_command);
 
-  String *asm_lines = C_CodeGenEmit(program);
-
-  for (int i = 0; i < arrlen(asm_lines); i++) {
-    fprintf(file, "%s\n", StringGetCstr(&asm_lines[i]));
-  }
-  fclose(file);
-
-  String object_filename = StringCreateEmpty(0);
-  StringPrintf(&object_filename, "%s.o", StringGetCstr(&filename_no_format));
-
-  String asm_command = StringCreateEmpty(30);
-  StringPrintf(&asm_command, "nasm -f elf64 %s -o %s",
-               StringGetCstr(&asm_filename), StringGetCstr(&object_filename));
-
-  String ld_command = StringCreateEmpty(0);
-  StringPrintf(&ld_command, "ld %s -o %s", StringGetCstr(&object_filename),
-               StringGetCstr(&filename_no_format));
-
-  system(StringGetCstr(&asm_command));
-  system(StringGetCstr(&ld_command));
-
-  for (int i = 0; i < arrlen(asm_lines); i++) {
-    StringFree(&asm_lines[i]);
-  }
-  arrfree(asm_lines);
-  C_LexerFree(lexer);
-  C_ParserFreeProgram(&program);
-  C_ErrorContextFree(error_context);
-  C_ParserFree(&parser);
-  free(source);
-  StringFree(&filepath);
-  StringFree(&filename_no_format);
-  StringFree(&asm_filename);
-  StringFree(&object_filename);
-  StringFree(&asm_command);
-  StringFree(&ld_command);
-  return 0;
+    LOG_DEBUG("Compilation complete!\n");
+    return 0;
 }
