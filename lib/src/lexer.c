@@ -175,7 +175,7 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
   LOG_DEBUG("Lexing identifier or keyword\n");
   LOG_DEBUG("Current position %zu\n", lexer->current_position);
 
-  while (isalnum(lexer->current_char)) {
+  while (isalnum(lexer->current_char) || lexer->current_char == '_') {
     LOG_DEBUG("%c\n", lexer->current_char);
     C_LexerAdvance(lexer);
   }
@@ -197,6 +197,30 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
     type = C_IF;
   } else if (strcmp("else", word_cstr) == 0) {
     type = C_ELSE;
+  } else if (strcmp("extern", word_cstr) == 0) {
+    type = C_EXTERN;
+  } else if (strcmp("typedef", word_cstr) == 0) {
+    type = C_TYPEDEF;
+  } else if (strcmp("unsigned", word_cstr) == 0) {
+    type = C_UNSIGNED;
+  } else if (strcmp("signed", word_cstr) == 0) {
+    type = C_SIGNED;
+  } else if (strcmp("short", word_cstr) == 0) {
+    type = C_SHORT;
+  } else if (strcmp("long", word_cstr) == 0) {
+    type = C_LONG;
+  } else if (strcmp("struct", word_cstr) == 0) {
+    type = C_STRUCT;
+  } else if (strcmp("union", word_cstr) == 0) {
+    type = C_UNION;
+  } else if (strcmp("enum", word_cstr) == 0) {
+    type = C_ENUM;
+  } else if (strcmp("static", word_cstr) == 0) {
+    type = C_STATIC;
+  } else if (strcmp("const", word_cstr) == 0) {
+    type = C_CONST;
+  } else if (strcmp("volatile", word_cstr) == 0) {
+    type = C_VOLATILE;
   }
 
   return C_LexerCreateToken(lexer, type, word, '\0');
@@ -263,17 +287,41 @@ C_Token *C_LexerLex(C_Lexer *lexer) {
         C_LexerAdvance(lexer);
         break;
 
+      case ':':
+        arrput(tokens, C_LexerCreateToken(lexer, C_COLON, (String){0},
+                                          lexer->current_char));
+        C_LexerAdvance(lexer);
+        break;
       case ';':
         arrput(tokens, C_LexerCreateToken(lexer, C_SEMICOLON, (String){0},
                                           lexer->current_char));
         C_LexerAdvance(lexer);
         break;
-      case '=':
-        arrput(tokens, C_LexerCreateToken(lexer, C_ASSIGN, (String){0},
+      case ',':
+        arrput(tokens, C_LexerCreateToken(lexer, C_COMMA, (String){0},
                                           lexer->current_char));
         C_LexerAdvance(lexer);
         break;
-
+      case '%':
+        arrput(tokens, C_LexerCreateToken(lexer, C_PERCENT, (String){0},
+                                          lexer->current_char));
+        C_LexerAdvance(lexer);
+        break;
+      case '~':
+        arrput(tokens, C_LexerCreateToken(lexer, C_TILDE, (String){0},
+                                          lexer->current_char));
+        C_LexerAdvance(lexer);
+        break;
+      case '^':
+        arrput(tokens, C_LexerCreateToken(lexer, C_CARET, (String){0},
+                                          lexer->current_char));
+        C_LexerAdvance(lexer);
+        break;
+      case '?':
+        arrput(tokens, C_LexerCreateToken(lexer, C_QUESTION, (String){0},
+                                          lexer->current_char));
+        C_LexerAdvance(lexer);
+        break;
       case '&':
         arrput(tokens, C_LexerCreateToken(lexer, C_AMPERSAND, (String){0},
                                           lexer->current_char));
@@ -288,13 +336,102 @@ C_Token *C_LexerLex(C_Lexer *lexer) {
         arrput(tokens, C_LexerLexString(lexer));
         break;
 
+      case '<':
+        if (lexer->read_position < lexer->source_length &&
+            lexer->source[lexer->read_position] == '=') {
+          C_LexerAdvance(lexer);
+          arrput(tokens, C_LexerCreateToken(lexer, C_LESS_EQUAL, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        } else {
+          arrput(tokens, C_LexerCreateToken(lexer, C_LESS, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        }
+        break;
+
+      case '>':
+        if (lexer->read_position < lexer->source_length &&
+            lexer->source[lexer->read_position] == '=') {
+          C_LexerAdvance(lexer);
+          arrput(tokens, C_LexerCreateToken(lexer, C_GREATER_EQUAL, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        } else {
+          arrput(tokens, C_LexerCreateToken(lexer, C_GREATER, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        }
+        break;
+
+      case '=':
+        if (lexer->read_position < lexer->source_length &&
+            lexer->source[lexer->read_position] == '=') {
+          C_LexerAdvance(lexer);
+          arrput(tokens, C_LexerCreateToken(lexer, C_EQUAL, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        } else {
+          arrput(tokens, C_LexerCreateToken(lexer, C_ASSIGN, (String){0},
+                                            lexer->current_char));
+          C_LexerAdvance(lexer);
+        }
+        break;
+
+      case '|':
+        if (lexer->read_position < lexer->source_length &&
+            lexer->source[lexer->read_position] == '|') {
+          C_LexerAdvance(lexer);
+          arrput(tokens, C_LexerCreateToken(lexer, C_PIPE_PIPE, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        } else {
+          arrput(tokens, C_LexerCreateToken(lexer, C_PIPE, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        }
+        break;
+
+      case '!':
+        if (lexer->read_position < lexer->source_length &&
+            lexer->source[lexer->read_position] == '=') {
+          C_LexerAdvance(lexer);
+          arrput(tokens, C_LexerCreateToken(lexer, C_NOT_EQUAL, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        } else {
+          EXIT_WITH_ERROR(
+              "Got unknown character: \'%c\' (%d), position: %zu, line: %zu, "
+              "column: %zu\n",
+              lexer->current_char, lexer->current_char, lexer->current_position,
+              lexer->current_line, lexer->current_column);
+        }
+        break;
+
+      case '#':
+        // Skip hash characters that leak from preprocessor
+        C_LexerAdvance(lexer);
+        break;
+      case '.':
+        if (lexer->read_position < lexer->source_length &&
+            lexer->source[lexer->read_position] == '>') {
+          C_LexerAdvance(lexer);
+          arrput(tokens, C_LexerCreateToken(lexer, C_ARROW, (String){0}, 0));
+          C_LexerAdvance(lexer);
+        } else {
+          arrput(tokens, C_LexerCreateToken(lexer, C_DOT, (String){0},
+                                            lexer->current_char));
+          C_LexerAdvance(lexer);
+        }
+        break;
+      case '[':
+        arrput(tokens, C_LexerCreateToken(lexer, C_LBRACKET, (String){0}, 0));
+        C_LexerAdvance(lexer);
+        break;
+      case ']':
+        arrput(tokens, C_LexerCreateToken(lexer, C_RBRACKET, (String){0}, 0));
+        C_LexerAdvance(lexer);
+        break;
+
       default: {
         if (isdigit(lexer->current_char)) {
           arrput(tokens, C_LexerLexNumber(lexer));
           continue;
         }
 
-        if (isalpha(lexer->current_char)) {
+        if (isalpha(lexer->current_char) || lexer->current_char == '_') {
           arrput(tokens, C_LexerLexIdentifierOrKeyword(lexer));
           continue;
         }
@@ -349,6 +486,30 @@ const char *C_TokenTypeToString(C_TokenType type) {
       return "C_IF";
     case C_ELSE:
       return "C_ELSE";
+    case C_EXTERN:
+      return "C_EXTERN";
+    case C_TYPEDEF:
+      return "C_TYPEDEF";
+    case C_UNSIGNED:
+      return "C_UNSIGNED";
+    case C_SIGNED:
+      return "C_SIGNED";
+    case C_SHORT:
+      return "C_SHORT";
+    case C_LONG:
+      return "C_LONG";
+    case C_STRUCT:
+      return "C_STRUCT";
+    case C_UNION:
+      return "C_UNION";
+    case C_ENUM:
+      return "C_ENUM";
+    case C_STATIC:
+      return "C_STATIC";
+    case C_CONST:
+      return "C_CONST";
+    case C_VOLATILE:
+      return "C_VOLATILE";
     case C_PLUS:
       return "C_PLUS";
     case C_MINUS:
@@ -365,12 +526,48 @@ const char *C_TokenTypeToString(C_TokenType type) {
       return "C_LBRACE";
     case C_RBRACE:
       return "C_RBRACE";
+    case C_LBRACKET:
+      return "C_LBRACKET";
+    case C_RBRACKET:
+      return "C_RBRACKET";
+    case C_COLON:
+      return "C_COLON";
+    case C_COMMA:
+      return "C_COMMA";
+    case C_PERCENT:
+      return "C_PERCENT";
+    case C_TILDE:
+      return "C_TILDE";
+    case C_CARET:
+      return "C_CARET";
+    case C_DOT:
+      return "C_DOT";
+    case C_QUESTION:
+      return "C_QUESTION";
+    case C_ARROW:
+      return "C_ARROW";
     case C_SEMICOLON:
       return "C_SEMICOLON";
     case C_ASSIGN:
       return "C_ASSIGN";
     case C_AMPERSAND:
       return "C_AMPERSAND";
+    case C_LESS:
+      return "C_LESS";
+    case C_GREATER:
+      return "C_GREATER";
+    case C_LESS_EQUAL:
+      return "C_LESS_EQUAL";
+    case C_GREATER_EQUAL:
+      return "C_GREATER_EQUAL";
+    case C_EQUAL:
+      return "C_EQUAL";
+    case C_NOT_EQUAL:
+      return "C_NOT_EQUAL";
+    case C_PIPE:
+      return "C_PIPE";
+    case C_PIPE_PIPE:
+      return "C_PIPE_PIPE";
     case C_VOID:
       return "C_VOID";
     case C_EOF:

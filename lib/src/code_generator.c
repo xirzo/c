@@ -310,27 +310,68 @@ String *C_CodeGenEmitBinaryExpression(C_AstBinaryExpression *binary,
 
   arrput(lines, StringCreate("    pop rbx"));
 
-  switch (binary->symbol) {
-    case '+':
+  switch (binary->operator_type) {
+    case C_PLUS:
       arrput(lines, StringCreate("    add rax, rbx"));
       break;
-    case '-':
+    case C_MINUS:
       arrput(lines, StringCreate("    sub rbx, rax"));
       arrput(lines, StringCreate("    mov rax, rbx"));
       break;
-    case '*':
+    case C_ASTERISK:
       arrput(lines, StringCreate("    imul rax, rbx"));
       break;
-    case '/':
+    case C_SLASH:
       arrput(lines, StringCreate("    mov rdx, 0"));
       arrput(lines, StringCreate("    mov rcx, rax"));
       arrput(lines, StringCreate("    mov rax, rbx"));
-      // NOTE: remainder in rdx
       arrput(lines, StringCreate("    idiv rcx"));
       break;
+    case C_LESS:
+      arrput(lines, StringCreate("    cmp rbx, rax"));
+      arrput(lines, StringCreate("    setl al"));
+      arrput(lines, StringCreate("    movzx rax, al"));
+      break;
+    case C_GREATER:
+      arrput(lines, StringCreate("    cmp rbx, rax"));
+      arrput(lines, StringCreate("    setg al"));
+      arrput(lines, StringCreate("    movzx rax, al"));
+      break;
+    case C_LESS_EQUAL:
+      arrput(lines, StringCreate("    cmp rbx, rax"));
+      arrput(lines, StringCreate("    setle al"));
+      arrput(lines, StringCreate("    movzx rax, al"));
+      break;
+    case C_GREATER_EQUAL:
+      arrput(lines, StringCreate("    cmp rbx, rax"));
+      arrput(lines, StringCreate("    setge al"));
+      arrput(lines, StringCreate("    movzx rax, al"));
+      break;
+    case C_EQUAL:
+      arrput(lines, StringCreate("    cmp rbx, rax"));
+      arrput(lines, StringCreate("    sete al"));
+      arrput(lines, StringCreate("    movzx rax, al"));
+      break;
+    case C_NOT_EQUAL:
+      arrput(lines, StringCreate("    cmp rbx, rax"));
+      arrput(lines, StringCreate("    setne al"));
+      arrput(lines, StringCreate("    movzx rax, al"));
+      break;
+    case C_LBRACKET:
+      arrput(lines, StringCreate("    mov rax, [rbx + rax * 8]"));
+      break;
+    case C_PIPE:
+      arrput(lines, StringCreate("    or rax, rbx"));
+      break;
+    case C_PIPE_PIPE:
+      arrput(lines, StringCreate("    or rax, rbx"));
+      arrput(lines, StringCreate("    test rax, rax"));
+      arrput(lines, StringCreate("    setnz al"));
+      arrput(lines, StringCreate("    movzx rax, al"));
+      break;
     default:
-      EXIT_WITH_ERROR("Received inproper binary operator symbol: %c",
-                      binary->symbol);
+      EXIT_WITH_ERROR("Received improper binary operator type: %d",
+                      binary->operator_type);
   }
 
   return lines;

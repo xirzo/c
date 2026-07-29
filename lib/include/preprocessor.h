@@ -4,6 +4,7 @@
 #include "xi_string.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
     String *content;
@@ -20,6 +21,12 @@ typedef struct {
     size_t count;
     size_t capacity;
 } PreprocessorOutput;
+
+typedef enum {
+    PREPROC_IF_ACTIVE,
+    PREPROC_IF_SKIPPING,
+    PREPROC_IF_DONE,
+} PreprocessorIfBranchState;
 
 String PreprocessorProcess(const String *content);
 String PreprocessorProcessWithIncludes(const String *content, const char *include_paths[]);
@@ -56,6 +63,10 @@ void MacroTableFree(MacroTable *table);
 bool MacroTableAdd(MacroTable *table, const char *name, const char *value);
 bool MacroTableAddString(MacroTable *table, const String *name, const String *value);
 String MacroTableExpand(MacroTable *table, const String *content);
+int MacroTableFind(MacroTable *table, const String *name);
+bool MacroTableRemove(MacroTable *table, const String *name);
+
+int64_t PreprocessorEvaluateIf(const String *expr, const MacroTable *macro_table);
 
 String PreprocessorTrimWhitespace(const String *str);
 String PreprocessorCollapseWhitespace(const String *str);

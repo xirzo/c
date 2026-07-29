@@ -44,7 +44,7 @@ typedef struct {
 } C_AstVariable;
 
 typedef struct {
-  char             symbol;
+  C_TokenType      operator_type;
   C_AstExpression *lhs;
   C_AstExpression *rhs;
 } C_AstBinaryExpression;

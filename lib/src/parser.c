@@ -190,16 +190,14 @@ C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser) {
 
   C_ParserAdvance(parser);
 
-  if (parser->current_token.type != C_RPAREN) {
-    C_ErrorReportWithToken(parser->error_context,
-                           "Expected ')' after function call",
-                           parser->current_token, parser->filename);
-    StringFree(&function_call->function_name);
-    free(function_call);
-    return NULL;
+  // Parse arguments (skip them for now)
+  int depth = 1;
+  while (depth > 0 && parser->current_token.type != C_EOF) {
+    if (parser->current_token.type == C_LPAREN) depth++;
+    else if (parser->current_token.type == C_RPAREN) depth--;
+    C_ParserAdvance(parser);
   }
 
-  C_ParserAdvance(parser);
   return function_call;
 }
 
@@ -264,6 +262,14 @@ C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
 
   LOG_DEBUG("Parsing statement\n");
 
+  // Skip declaration keywords that we don't fully support yet
+  while (parser->current_token.type == C_EXTERN ||
+         parser->current_token.type == C_STATIC ||
+         parser->current_token.type == C_CONST ||
+         parser->current_token.type == C_VOLATILE) {
+    C_ParserAdvance(parser);
+  }
+
   switch (parser->current_token.type) {
     case C_INTEGER:
     case C_CHAR:
@@ -314,6 +320,32 @@ C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
         return NULL;
       }
       break;
+    case C_TYPEDEF:
+    case C_UNSIGNED:
+    case C_SIGNED:
+    case C_SHORT:
+    case C_LONG:
+    case C_STRUCT:
+    case C_UNION:
+    case C_ENUM: {
+      int brace_depth = 0;
+      while (parser->current_token.type != C_EOF) {
+        if (parser->current_token.type == C_LBRACE) {
+          brace_depth++;
+          C_ParserAdvance(parser);
+        } else if (parser->current_token.type == C_RBRACE) {
+          if (brace_depth > 0) brace_depth--;
+          C_ParserAdvance(parser);
+        } else if (parser->current_token.type == C_SEMICOLON && brace_depth == 0) {
+          C_ParserAdvance(parser);
+          break;
+        } else {
+          C_ParserAdvance(parser);
+        }
+      }
+      statement->type = C_STATEMENT_NOOP;
+      break;
+    }
     default:
       statement->type       = C_STATEMENT_EXPRESSION;
       statement->expression = C_ParserParseExpression(parser);
@@ -401,6 +433,17 @@ C_InfixBindingPower C_GetInfixBindingPower(C_TokenType token_type) {
     case C_ASTERISK:
     case C_SLASH:
       return (C_InfixBindingPower){.left = 3, .right = 4};
+    case C_LESS:
+    case C_GREATER:
+    case C_LESS_EQUAL:
+    case C_GREATER_EQUAL:
+      return (C_InfixBindingPower){.left = 0.75, .right = 0.75};
+    case C_EQUAL:
+    case C_NOT_EQUAL:
+      return (C_InfixBindingPower){.left = 0.5, .right = 0.5};
+    case C_PIPE:
+    case C_PIPE_PIPE:
+      return (C_InfixBindingPower){.left = 0.25, .right = 0.25};
     default:
       return (C_InfixBindingPower){.left = 0, .right = 0};
   }
@@ -554,8 +597,54 @@ C_AstExpression *C_ParserParseExpressionWithPrecedence(
       case C_MINUS:
       case C_ASTERISK:
       case C_SLASH:
+      case C_LESS:
+      case C_GREATER:
+      case C_LESS_EQUAL:
+      case C_GREATER_EQUAL:
+      case C_EQUAL:
+      case C_NOT_EQUAL:
+      case C_PIPE:
+      case C_PIPE_PIPE:
         LOG_DEBUG("Found binary operator: %d\n", operator_type);
         break;
+      case C_LBRACKET: {
+        LOG_DEBUG("Found array subscript\n");
+        C_ParserAdvance(parser);
+        C_AstExpression *index = C_ParserParseExpression(parser);
+        if (!index) {
+          C_AstFreeExpression(&lhs);
+          return NULL;
+        }
+        if (parser->current_token.type != C_RBRACKET) {
+          C_ErrorReportWithToken(parser->error_context,
+                                 "Expected ']' after array subscript",
+                                 parser->current_token, parser->filename);
+          C_AstFreeExpression(&lhs);
+          C_AstFreeExpression(&index);
+          return NULL;
+        }
+        C_ParserAdvance(parser);
+
+        C_AstExpression *subscript = malloc(sizeof(C_AstExpression));
+        if (!subscript) {
+          C_AstFreeExpression(&lhs);
+          C_AstFreeExpression(&index);
+          return NULL;
+        }
+        subscript->type   = C_BINARY_EXPRESSION;
+        subscript->binary = malloc(sizeof(C_AstBinaryExpression));
+        if (!subscript->binary) {
+          free(subscript);
+          C_AstFreeExpression(&lhs);
+          C_AstFreeExpression(&index);
+          return NULL;
+        }
+        subscript->binary->operator_type = C_LBRACKET;
+        subscript->binary->lhs           = lhs;
+        subscript->binary->rhs           = index;
+        lhs = subscript;
+        continue;
+      }
       case C_EOF:
         LOG_DEBUG("Reached EOF, returning lhs at %p\n", (void *)lhs);
         return lhs;
@@ -612,34 +701,13 @@ C_AstExpression *C_ParserParseExpressionWithPrecedence(
     LOG_DEBUG("Allocated binary expression struct at %p\n",
               (void *)binary_expr->binary);
 
-    switch (operator_type) {
-      case C_PLUS:
-        binary_expr->binary->symbol = '+';
-        LOG_DEBUG("Set binary operator: '+'\n");
-        break;
-      case C_MINUS:
-        binary_expr->binary->symbol = '-';
-        LOG_DEBUG("Set binary operator: '-'\n");
-        break;
-      case C_ASTERISK:
-        binary_expr->binary->symbol = '*';
-        LOG_DEBUG("Set binary operator: '*'\n");
-        break;
-      case C_SLASH:
-        binary_expr->binary->symbol = '/';
-        LOG_DEBUG("Set binary operator: '/'\n");
-        break;
-      default:
-        binary_expr->binary->symbol = '?';
-        LOG_DEBUG("Set binary operator: '?' (unknown)\n");
-        break;
-    }
+    binary_expr->binary->operator_type = operator_type;
 
     binary_expr->binary->lhs = lhs;
     binary_expr->binary->rhs = rhs;
-    LOG_DEBUG("Binary expression - lhs: %p, rhs: %p, symbol: %c\n",
+    LOG_DEBUG("Binary expression - lhs: %p, rhs: %p, operator_type: %d\n",
               (void *)binary_expr->binary->lhs,
-              (void *)binary_expr->binary->rhs, binary_expr->binary->symbol);
+              (void *)binary_expr->binary->rhs, binary_expr->binary->operator_type);
 
     lhs = binary_expr;
     LOG_DEBUG("Set lhs to binary expression at %p\n", (void *)lhs);
@@ -736,7 +804,6 @@ C_AstBlock *C_ParserParseBlock(C_Parser *parser) {
 }
 
 C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser) {
-  LOG_DEBUG("Parsing function declaration\n");
   C_AstFunctionDeclaration *function_declaration =
       malloc(sizeof(C_AstFunctionDeclaration));
   function_declaration->body = NULL;
@@ -745,12 +812,26 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser) {
 
   C_ParsePointerDepth(parser);
 
+  // If we don't see an identifier, try to skip to a valid function pattern
   if (parser->current_token.type != C_IDENTIFIER) {
-    C_ErrorReportWithToken(parser->error_context,
-                           "Expected function name after type",
-                           parser->current_token, parser->filename);
-    free(function_declaration);
-    return NULL;
+    // Skip tokens until we find an identifier followed by (
+    while (parser->current_token.type != C_EOF) {
+      if (parser->current_token.type == C_IDENTIFIER &&
+          C_ParserPeek(parser).type == C_LPAREN) {
+        break;
+      }
+      if (parser->current_token.type == C_SEMICOLON) {
+        // Nothing useful found - treat as empty declaration
+        C_ParserAdvance(parser);
+        free(function_declaration);
+        return function_declaration;
+      }
+      C_ParserAdvance(parser);
+    }
+    if (parser->current_token.type == C_EOF) {
+      free(function_declaration);
+      return NULL;
+    }
   }
 
   function_declaration->function_name =
@@ -759,26 +840,65 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser) {
   C_ParserAdvance(parser);
 
   if (parser->current_token.type != C_LPAREN) {
-    C_ErrorReportWithToken(parser->error_context,
-                           "Expected '(' after function name",
-                           parser->current_token, parser->filename);
+    // Skip to semicolon
+    while (parser->current_token.type != C_SEMICOLON &&
+           parser->current_token.type != C_EOF) {
+      C_ParserAdvance(parser);
+    }
+    if (parser->current_token.type == C_SEMICOLON)
+      C_ParserAdvance(parser);
     StringFree(&function_declaration->function_name);
+    function_declaration->function_name.data = NULL;
+    function_declaration->function_name.length = 0;
+    function_declaration->body = NULL;
+    return function_declaration;
+  }
+
+  C_ParserAdvance(parser);
+
+  // Skip parameter list until )
+  int paren_depth = 1;
+  while (paren_depth > 0 && parser->current_token.type != C_EOF) {
+    if (parser->current_token.type == C_LPAREN) {
+      paren_depth++;
+      C_ParserAdvance(parser);
+    } else if (parser->current_token.type == C_RPAREN) {
+      paren_depth--;
+      if (paren_depth > 0) C_ParserAdvance(parser);
+    } else {
+      C_ParserAdvance(parser);
+    }
+  }
+
+  if (parser->current_token.type == C_EOF) {
     free(function_declaration);
     return NULL;
   }
 
   C_ParserAdvance(parser);
 
-  if (parser->current_token.type != C_RPAREN) {
-    C_ErrorReportWithToken(parser->error_context,
-                           "Expected ')' after function parameters",
-                           parser->current_token, parser->filename);
-    StringFree(&function_declaration->function_name);
-    free(function_declaration);
-    return NULL;
+  // Skip attributes after parameters (e.g. __attribute__((...)))
+  while (parser->current_token.type == C_LPAREN ||
+         parser->current_token.type == C_IDENTIFIER ||
+         parser->current_token.type == C_ASTERISK ||
+         parser->current_token.type == C_RPAREN) {
+    if (parser->current_token.type == C_RPAREN) {
+      C_ParserAdvance(parser);
+    } else if (parser->current_token.type == C_LPAREN) {
+      int depth = 1;
+      C_ParserAdvance(parser);
+      while (depth > 0 && parser->current_token.type != C_EOF) {
+        if (parser->current_token.type == C_LPAREN) depth++;
+        else if (parser->current_token.type == C_RPAREN) depth--;
+        C_ParserAdvance(parser);
+      }
+    } else {
+      C_ParserAdvance(parser);
+    }
+    if (parser->current_token.type == C_SEMICOLON ||
+        parser->current_token.type == C_LBRACE)
+      break;
   }
-
-  C_ParserAdvance(parser);
 
   if (parser->current_token.type == C_SEMICOLON) {
     C_ParserAdvance(parser);
@@ -813,14 +933,73 @@ C_AstProgram *C_ParserParse(C_Parser *parser) {
           C_ParserSynchronizeToDeclaration(parser);
         }
       } break;
+      case C_EXTERN:
+      case C_STATIC:
+      case C_CONST:
+      case C_VOLATILE:
+        C_ParserAdvance(parser);
+        break;
+      case C_TYPEDEF:
+      case C_UNSIGNED:
+      case C_SIGNED:
+      case C_SHORT:
+      case C_LONG:
+      case C_STRUCT:
+      case C_UNION:
+      case C_ENUM: {
+        // Skip unknown top-level declarations, tracking brace depth
+        // to handle struct/union/enum bodies
+        int brace_depth = 0;
+        while (parser->current_token.type != C_EOF) {
+          if (parser->current_token.type == C_LBRACE) {
+            brace_depth++;
+            C_ParserAdvance(parser);
+          } else if (parser->current_token.type == C_RBRACE) {
+            if (brace_depth > 0) brace_depth--;
+            C_ParserAdvance(parser);
+          } else if (parser->current_token.type == C_SEMICOLON && brace_depth == 0) {
+            C_ParserAdvance(parser);
+            break;
+          } else {
+            C_ParserAdvance(parser);
+          }
+        }
+        break;
+      }
       case C_EOF:
         goto done_parsing;
       default:
-        C_ErrorReportWithToken(
-            parser->error_context,
-            "Unexpected token - expected function declaration",
-            parser->current_token, parser->filename);
-        C_ParserAdvance(parser);
+        if (parser->current_token.type == C_IDENTIFIER &&
+            C_ParserPeek(parser).type == C_LPAREN) {
+          // Looks like a function call at top level - skip it
+          C_ParserAdvance(parser); // skip identifier
+          // Skip balanced parens
+          if (parser->current_token.type == C_LPAREN) {
+            int depth = 1;
+            C_ParserAdvance(parser);
+            while (depth > 0 && parser->current_token.type != C_EOF) {
+              if (parser->current_token.type == C_LPAREN) depth++;
+              else if (parser->current_token.type == C_RPAREN) depth--;
+              C_ParserAdvance(parser);
+            }
+          }
+          // Skip to semicolon
+          while (parser->current_token.type != C_SEMICOLON &&
+                 parser->current_token.type != C_EOF) {
+            C_ParserAdvance(parser);
+          }
+          if (parser->current_token.type == C_SEMICOLON)
+            C_ParserAdvance(parser);
+        } else {
+          // Unknown token - skip to semicolon
+          while (parser->current_token.type != C_SEMICOLON &&
+                 parser->current_token.type != C_LBRACE &&
+                 parser->current_token.type != C_EOF) {
+            C_ParserAdvance(parser);
+          }
+          if (parser->current_token.type == C_SEMICOLON)
+            C_ParserAdvance(parser);
+        }
         break;
     }
   }
@@ -1037,3 +1216,4 @@ void C_AstFreeIf(C_AstIf **if_statement) {
   free(*if_statement);
   *if_statement = NULL;
 }
+
