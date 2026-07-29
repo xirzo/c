@@ -10,9 +10,13 @@
   } while (1)
 
 #if defined(ENABLE_LOGGING) && ENABLE_LOGGING == 1
-#define LOG_DEBUG(fmt, ...) printf("[DEBUG] %s:%d: " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_DEBUG(...) \
+  do { \
+    printf("[DEBUG] %s:%d: ", __FILE__, __LINE__); \
+    printf(__VA_ARGS__); \
+  } while (0)
 #else
-#define LOG_DEBUG(fmt, ...) ((void)0)
+#define LOG_DEBUG(...) ((void)0)
 #endif
 
 #endif  // !UTILS_H
