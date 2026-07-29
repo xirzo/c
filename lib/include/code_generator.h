@@ -4,7 +4,7 @@
 #include "parser.h"
 #include "xi_string.h"
 
-String *C_CodeGenEmit(C_AstProgram *program);
+String *C_CodeGenEmit(C_AstProgram *program, bool emit_entry);
 String *C_CodeGenEmitFunctionDeclaration(
     C_AstFunctionDeclaration *function_declaration);
 String *C_CodeGenEmitFunctionCall(C_AstFunctionCall *function_call,

@@ -780,6 +780,12 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser) {
 
   C_ParserAdvance(parser);
 
+  if (parser->current_token.type == C_SEMICOLON) {
+    C_ParserAdvance(parser);
+    function_declaration->body = NULL;
+    return function_declaration;
+  }
+
   function_declaration->body = C_ParserParseBlock(parser);
   if (!function_declaration->body) {
     StringFree(&function_declaration->function_name);

@@ -27,7 +27,7 @@ void test_code_gen_main_function(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));
@@ -89,7 +89,7 @@ void test_code_gen_char_literal(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));
@@ -151,7 +151,7 @@ void test_code_gen_char_escape(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));
@@ -215,7 +215,7 @@ void test_code_gen_pointer_deref(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));
@@ -293,7 +293,7 @@ void test_code_gen_if_statement(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));
@@ -367,7 +367,7 @@ void test_code_gen_if_false(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));
@@ -442,7 +442,7 @@ void test_code_gen_if_else_true(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));
@@ -519,7 +519,7 @@ void test_code_gen_if_else_false(void) {
   C_Parser *parser = C_ParserCreate(tokens, error_context, "test_filename.c");
   C_AstProgram *program = C_ParserParse(parser);
 
-  String *asm_lines = C_CodeGenEmit(program);
+  String *asm_lines = C_CodeGenEmit(program, true);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
     strcat(result, StringGetCstr(&asm_lines[i]));

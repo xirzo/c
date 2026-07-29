@@ -16,6 +16,7 @@
 static String *cg_string_data = NULL;
 static int     cg_string_count = 0;
 static int     cg_if_label_counter = 0;
+static String *cg_externs = NULL;
 
 static void C_CodeGenResetStringState(void) {
   if (cg_string_data) {
@@ -74,31 +75,97 @@ static void C_CodeGenAddStringData(const char *label, const String *str) {
   arrput(cg_string_data, StringCreate(line));
 }
 
-String *C_CodeGenEmit(C_AstProgram *program) {
+static void C_CodeGenCollectExterns(C_AstProgram *program) {
+  cg_externs = NULL;
+  int saved_counter = cg_if_label_counter;
+  cg_if_label_counter = 0;
+
+  for (int i = 0; i < arrlen(program->function_declarations); i++) {
+    if (!program->function_declarations[i]->body) continue;
+    String *func_lines =
+        C_CodeGenEmitFunctionDeclaration(program->function_declarations[i]);
+    for (int j = 0; j < arrlen(func_lines); j++) {
+      const char *str = StringGetCstr(&func_lines[j]);
+      if (strncmp(str, "    call ", 9) == 0) {
+        const char *fname = str + 9;
+        bool local = false;
+        for (int k = 0; k < arrlen(program->function_declarations); k++) {
+          if (!program->function_declarations[k]->body) continue;
+          if (strcmp(StringGetCstr(&program->function_declarations[k]->function_name), fname) == 0) {
+            local = true;
+            break;
+          }
+        }
+        if (!local) {
+          bool already = false;
+          for (int k = 0; k < arrlen(cg_externs); k++) {
+            if (strcmp(StringGetCstr(&cg_externs[k]), fname) == 0) {
+              already = true;
+              break;
+            }
+          }
+          if (!already) {
+            arrput(cg_externs, StringCreate(fname));
+          }
+        }
+      }
+    }
+    for (int j = 0; j < arrlen(func_lines); j++) {
+      StringFree(&func_lines[j]);
+    }
+    arrfree(func_lines);
+  }
+
+  cg_if_label_counter = saved_counter;
+}
+
+String *C_CodeGenEmit(C_AstProgram *program, bool emit_entry) {
+  cg_externs = NULL;
+  C_CodeGenCollectExterns(program);
   C_CodeGenResetStringState();
+
   cg_if_label_counter = 0;
   String *lines = NULL;
 
-  arrput(lines, StringCreate("global _start"));
-  arrput(lines, StringCreate(""));
-  arrput(lines, StringCreate("section .text"));
-  arrput(lines, StringCreate("_start:"));
-  arrput(lines, StringCreate("    call main"));
-  arrput(lines, StringCreate(""));
-  arrput(lines, StringCreate("    mov rdi, rax"));
-  arrput(lines, StringCreate("    mov rax, 60"));
-  arrput(lines, StringCreate("    syscall"));
-  arrput(lines, StringCreate(""));
+  if (emit_entry) {
+    arrput(lines, StringCreate("global _start"));
+  }
 
   for (int i = 0; i < arrlen(program->function_declarations); i++) {
-    String *function_lines =
+    if (!program->function_declarations[i]->body) continue;
+    String global_line = StringCreateEmpty(0);
+    StringPrintf(&global_line, "global %s",
+                 StringGetCstr(&program->function_declarations[i]->function_name));
+    arrput(lines, global_line);
+  }
+
+  for (int i = 0; i < arrlen(cg_externs); i++) {
+    String extern_line = StringCreateEmpty(0);
+    StringPrintf(&extern_line, "extern %s", StringGetCstr(&cg_externs[i]));
+    arrput(lines, extern_line);
+  }
+
+  arrput(lines, StringCreate(""));
+  arrput(lines, StringCreate("section .text"));
+
+  if (emit_entry) {
+    arrput(lines, StringCreate("_start:"));
+    arrput(lines, StringCreate("    call main"));
+    arrput(lines, StringCreate(""));
+    arrput(lines, StringCreate("    mov rdi, rax"));
+    arrput(lines, StringCreate("    mov rax, 60"));
+    arrput(lines, StringCreate("    syscall"));
+    arrput(lines, StringCreate(""));
+  }
+
+  for (int i = 0; i < arrlen(program->function_declarations); i++) {
+    if (!program->function_declarations[i]->body) continue;
+    String *func_lines =
         C_CodeGenEmitFunctionDeclaration(program->function_declarations[i]);
-
-    for (int i = 0; i < arrlen(function_lines); i++) {
-      arrput(lines, function_lines[i]);
+    for (int j = 0; j < arrlen(func_lines); j++) {
+      arrput(lines, func_lines[j]);
     }
-
-    arrfree(function_lines);
+    arrfree(func_lines);
   }
 
   if (arrlen(cg_string_data) > 0) {
@@ -112,6 +179,12 @@ String *C_CodeGenEmit(C_AstProgram *program) {
   arrfree(cg_string_data);
   cg_string_data = NULL;
   cg_string_count = 0;
+
+  for (int i = 0; i < arrlen(cg_externs); i++) {
+    StringFree(&cg_externs[i]);
+  }
+  arrfree(cg_externs);
+  cg_externs = NULL;
 
   return lines;
 }
@@ -156,43 +229,13 @@ String *C_CodeGenEmitFunctionCall(C_AstFunctionCall *function_call,
   return lines;
 }
 
-// global _start
-//
-// section .text
-// _start:
-//     call main
-//     mov edi, eax
-//     mov eax, 60
-//     syscall
-//
-// main:
-//     push rbp
-//     mov rbp, rsp
-//
-//     sub rsp, 4
-//     %define myVar [rbp-4]
-//
-//     sub rsp, 4
-//     %define anotherVar [rbp-8]
-//
-//     mov dword myVar, 42
-//     mov dword anotherVar, 100
-//
-//     mov eax, myVar
-//     add eax, anotherVar
-//
-//     mov rsp, rbp
-//     pop rbp
-//     ret
-
 String *C_CodeGenEmitVariableAssignment(C_AstVariableAssignment *assignment,
                                         int *current_offset) {
   String *lines = NULL;
 
   arrput(lines, StringCreate(""));
-  // TODO: get size of the variable type
   arrput(lines, StringCreate("    sub rsp, 8"));
-
+  // TODO: get size of the variable type
   *current_offset += 8;
 
   String variable_label = StringCreateEmpty(0);

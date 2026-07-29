@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stddef.h>
+#include "utils.h"
 
 static String PreprocessorProcessFile(const String *content, const IncludePathList *include_paths, int depth);
 
@@ -171,11 +172,9 @@ String PreprocessorStripComments(const String *content) {
 
 
 static String ReadFile(const char *path) {
-    String result = StringCreateEmpty(0);
-    
     FILE *file = fopen(path, "r");
     if (!file) {
-        return result;
+        return StringCreateEmpty(0);
     }
     
     fseek(file, 0, SEEK_END);
@@ -184,10 +183,10 @@ static String ReadFile(const char *path) {
     
     if (file_size <= 0) {
         fclose(file);
-        return result;
+        return StringCreateEmpty(0);
     }
     
-    result = StringCreateEmpty(file_size + 1);
+    String result = StringCreateEmpty(file_size + 1);
     if (!result.data) {
         fclose(file);
         return result;
@@ -211,8 +210,6 @@ static bool FileExists(const char *path) {
 }
 
 static String FindIncludeFile(const String *include_path, const IncludePathList *search_paths) {
-    String result = StringCreateEmpty(0);
-    
     if (FileExists(include_path->data)) {
         return ReadFile(include_path->data);
     }
@@ -242,20 +239,48 @@ static String FindIncludeFile(const String *include_path, const IncludePathList 
         StringFree(&full_path);
     }
     
-    return result;
+    return StringCreateEmpty(0);
 }
 
 static String ExtractIncludePath(const String *line, bool *is_system) {
-    String result = StringCreateEmpty(0);
     *is_system = false;
+    
+    if (!line || line->length == 0) {
+        return StringCreateEmpty(0);
+    }
     
     String line_copy = StringDuplicate(line);
     StringTrim(&line_copy);
     
+    if (line_copy.length == 0) {
+        StringFree(&line_copy);
+        return StringCreateEmpty(0);
+    }
+    
     size_t i = 0;
-    while (i < line_copy.length && isalpha(StringGetChar(&line_copy, i))) {
+    while (i < line_copy.length && StringGetChar(&line_copy, i) != '#') {
         i++;
     }
+    if (i >= line_copy.length) {
+        StringFree(&line_copy);
+        return StringCreateEmpty(0);
+    }
+    i++; 
+    
+    while (i < line_copy.length && (StringGetChar(&line_copy, i) == ' ' || StringGetChar(&line_copy, i) == '\t')) {
+        i++;
+    }
+    
+    const char *include_str = "include";
+    size_t j = 0;
+    while (j < 7 && i + j < line_copy.length && StringGetChar(&line_copy, i + j) == include_str[j]) {
+        j++;
+    }
+    if (j < 7) {
+        StringFree(&line_copy);
+        return StringCreateEmpty(0);
+    }
+    i += 7;
     
     while (i < line_copy.length && (StringGetChar(&line_copy, i) == ' ' || StringGetChar(&line_copy, i) == '\t')) {
         i++;
@@ -263,10 +288,11 @@ static String ExtractIncludePath(const String *line, bool *is_system) {
     
     if (i >= line_copy.length) {
         StringFree(&line_copy);
-        return result;
+        return StringCreateEmpty(0);
     }
     
     char first = StringGetChar(&line_copy, i);
+    String result = StringCreateEmpty(0);
     
     if (first == '<') {
         *is_system = true;
@@ -275,6 +301,7 @@ static String ExtractIncludePath(const String *line, bool *is_system) {
         while (i < line_copy.length && StringGetChar(&line_copy, i) != '>') {
             i++;
         }
+        StringFree(&result);
         result = StringSubstring(&line_copy, start, i - start);
     } else if (first == '"') {
         i++;
@@ -282,6 +309,7 @@ static String ExtractIncludePath(const String *line, bool *is_system) {
         while (i < line_copy.length && StringGetChar(&line_copy, i) != '"') {
             i++;
         }
+        StringFree(&result);
         result = StringSubstring(&line_copy, start, i - start);
     }
     
@@ -357,26 +385,24 @@ static String PreprocessorProcessFile(const String *content, const IncludePathLi
                             StringAppendChar(&result, '\n');
                         }
                     } else {
-                        String line_trimmed = StringDuplicate(&line);
-                        StringTrim(&line_trimmed);
-                        if (line_trimmed.data) {
-                            StringAppend(&result, &line_trimmed);
-                            StringAppendChar(&result, '\n');
-                        }
-                        StringFree(&line_trimmed);
+                        LOG_DEBUG("Warning: Include file not found: %s\n", include_path.data ? include_path.data : "(null)");
                     }
                     
                     StringFree(&included_content);
-                } else {
-                    StringAppend(&result, &line);
-                    StringAppendChar(&result, '\n');
                 }
-                
                 StringFree(&include_path);
             } else {
-                StringAppend(&result, &line);
-                if (i < no_comments.length) {
-                    StringAppendChar(&result, '\n');
+                size_t first_non_space = 0;
+                while (first_non_space < line.length &&
+                       (line.data[first_non_space] == ' ' || line.data[first_non_space] == '\t')) {
+                    first_non_space++;
+                }
+                bool is_directive = (first_non_space < line.length && line.data[first_non_space] == '#');
+                if (!is_directive) {
+                    StringAppend(&result, &line);
+                    if (i < no_comments.length) {
+                        StringAppendChar(&result, '\n');
+                    }
                 }
             }
             
@@ -390,6 +416,9 @@ static String PreprocessorProcessFile(const String *content, const IncludePathLi
     while (result.length > 0 && StringGetChar(&result, result.length - 1) == '\n') {
         result.data[result.length - 1] = '\0';
         result.length--;
+    }
+    if (result.length > 0) {
+        StringAppendChar(&result, '\n');
     }
     result.data[result.length] = '\0';
     
