@@ -65,9 +65,9 @@ int main(int argc, char *argv[]) {
   if (C_ErrorContextHasErrors(error_context)) {
     C_ErrorContextPrint(error_context, stderr);
     C_LexerFree(lexer);
-    C_ParserFreeProgram(program);
+    C_ParserFreeProgram(&program);
     C_ErrorContextFree(error_context);
-    C_ParserFree(parser);
+    C_ParserFree(&parser);
     free(source);
     StringFree(&filepath);
     StringFree(&filename_no_format);
@@ -80,8 +80,8 @@ int main(int argc, char *argv[]) {
   FILE *file = fopen(StringGetCstr(&asm_filename), "w");
 
   if (!file) {
-    C_ParserFreeProgram(program);
-    C_ParserFree(parser);
+    C_ParserFreeProgram(&program);
+    C_ParserFree(&parser);
     StringFree(&asm_filename);
     EXIT_WITH_ERROR("Failed to open file for writing");
   }
@@ -112,9 +112,9 @@ int main(int argc, char *argv[]) {
   }
   arrfree(asm_lines);
   C_LexerFree(lexer);
-  C_ParserFreeProgram(program);
+  C_ParserFreeProgram(&program);
   C_ErrorContextFree(error_context);
-  C_ParserFree(parser);
+  C_ParserFree(&parser);
   free(source);
   StringFree(&filepath);
   StringFree(&filename_no_format);

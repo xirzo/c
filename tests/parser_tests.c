@@ -38,7 +38,7 @@ void test_parse_function_declaration(void) {
                     stmt->return_statement->value->constant->value.int_value);
 
   C_AstFreeFunctionDeclaration(func);
-  C_ParserFree(parser);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
   C_LexerFree(lexer);
 }
@@ -88,8 +88,8 @@ void test_parse_string_literal(void) {
   TEST_ASSERT_EQUAL(0,
                     stmt1->return_statement->value->constant->value.int_value);
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
   C_LexerFree(lexer);
 }
@@ -127,8 +127,8 @@ void test_parse_char_literal(void) {
   TEST_ASSERT_EQUAL(C_AST_CONSTANT_CHAR, stmt0->expression->constant->type);
   TEST_ASSERT_EQUAL('a', stmt0->expression->constant->value.int_value);
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
   C_LexerFree(lexer);
 }
@@ -170,8 +170,8 @@ void test_parse_char_declaration(void) {
                     stmt0->assignment->expression->constant->type);
   TEST_ASSERT_EQUAL('a', stmt0->assignment->expression->constant->value.int_value);
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
   C_LexerFree(lexer);
 }
@@ -210,8 +210,8 @@ void test_parse_deref_expression(void) {
   TEST_ASSERT_EQUAL(C_UNARY_DEREF,
                     ret_stmt->return_statement->value->unary->type);
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
   C_LexerFree(lexer);
 }
@@ -250,8 +250,8 @@ void test_parse_address_of_expression(void) {
   TEST_ASSERT_EQUAL(C_UNARY_ADDRESS_OF,
                     assign_stmt->assignment->expression->unary->type);
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
   C_LexerFree(lexer);
 }

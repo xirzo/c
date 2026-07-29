@@ -36,8 +36,8 @@ void test_code_gen_main_function(void) {
     }
   }
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
@@ -94,8 +94,8 @@ void test_code_gen_char_literal(void) {
     }
   }
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
@@ -152,8 +152,8 @@ void test_code_gen_char_escape(void) {
     }
   }
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {
@@ -212,8 +212,8 @@ void test_code_gen_pointer_deref(void) {
     }
   }
 
-  C_ParserFreeProgram(program);
-  C_ParserFree(parser);
+  C_ParserFreeProgram(&program);
+  C_ParserFree(&parser);
   C_ErrorContextFree(error_context);
 
   for (int i = 0; i < arrlen(asm_lines); i++) {

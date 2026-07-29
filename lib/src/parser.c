@@ -4,6 +4,7 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "error.h"
 #include "lexer.h"
 #include "stb_ds.h"
@@ -128,15 +129,13 @@ static bool C_IsFunctionDeclaration(C_Parser *parser) {
   size_t pos = parser->current_position + 1;
   size_t len = arrlenu(parser->tokens);
 
-  if (pos >= len)
-    return false;
+  if (pos >= len) return false;
 
   while (pos < len && parser->tokens[pos].type == C_ASTERISK) {
     pos++;
   }
 
-  if (pos >= len || parser->tokens[pos].type != C_IDENTIFIER)
-    return false;
+  if (pos >= len || parser->tokens[pos].type != C_IDENTIFIER) return false;
   pos++;
 
   return pos < len && parser->tokens[pos].type == C_LPAREN;
@@ -152,9 +151,9 @@ C_AstConstant *C_ParserParseConstant(C_Parser *parser) {
           atoi(StringGetCstr(&parser->current_token.string));
       break;
     case C_CHAR_LITERAL: {
-      constant->type = C_AST_CONSTANT_CHAR;
-      const char *raw = StringGetCstr(&parser->current_token.string);
-      size_t offset = 0;
+      constant->type            = C_AST_CONSTANT_CHAR;
+      const char *raw           = StringGetCstr(&parser->current_token.string);
+      size_t      offset        = 0;
       constant->value.int_value = C_ParseCharEscape(raw, &offset);
       break;
     }
@@ -204,6 +203,54 @@ C_AstFunctionCall *C_ParserParseFunctionCall(C_Parser *parser) {
   return function_call;
 }
 
+C_AstIf *C_ParserParseIf(C_Parser *parser) {
+  (void)parser;
+  C_AstIf *if_statement = malloc(sizeof(C_AstIf));
+  if_statement->condition = NULL;
+  if_statement->block = NULL;
+
+  LOG_DEBUG("Parsing if statement\n");
+  C_ParserAdvance(parser);
+
+  if (parser->current_token.type != C_LPAREN) {
+    C_ErrorReportWithToken(parser->error_context,
+                           "Expected '(' after if statement",
+                           parser->current_token, parser->filename);
+    free(if_statement);
+    return NULL;
+  }
+
+  C_ParserAdvance(parser);
+
+  if_statement->condition = C_ParserParseExpression(parser);
+  if (!if_statement->condition) {
+    LOG_DEBUG("Failed to parse condition for if statement");
+    free(if_statement);
+    return NULL;
+  }
+
+  if (parser->current_token.type != C_RPAREN) {
+    C_ErrorReportWithToken(parser->error_context,
+                           "Expected ')' after if statement",
+                           parser->current_token, parser->filename);
+    C_AstFreeExpression(&if_statement->condition);
+    free(if_statement);
+    return NULL;
+  }
+
+  C_ParserAdvance(parser);
+
+  if_statement->block = C_ParserParseStatement(parser);
+  if (!if_statement->block) {
+    LOG_DEBUG("Failed to parse body for if statement");
+    C_AstFreeExpression(&if_statement->condition);
+    free(if_statement);
+    return NULL;
+  }
+
+  return if_statement;
+}
+
 C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
   C_AstStatement *statement = malloc(sizeof(C_AstStatement));
 
@@ -251,6 +298,14 @@ C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
       statement->type = C_STATEMENT_NOOP;
       C_ParserAdvance(parser);
       break;
+    case C_IF:
+      statement->type         = C_STATEMENT_IF;
+      statement->if_statement = C_ParserParseIf(parser);
+      if (!statement->if_statement) {
+        free(statement);
+        return NULL;
+      }
+      break;
     default:
       statement->type       = C_STATEMENT_EXPRESSION;
       statement->expression = C_ParserParseExpression(parser);
@@ -263,7 +318,7 @@ C_AstStatement *C_ParserParseStatement(C_Parser *parser) {
         C_ErrorReportWithToken(parser->error_context,
                                "Expected ';' after expression",
                                parser->current_token, parser->filename);
-        C_AstFreeExpression(statement->expression);
+        C_AstFreeExpression(&statement->expression);
         free(statement);
         return NULL;
       }
@@ -317,7 +372,7 @@ C_AstVariableAssignment *C_ParserParseVariableAssignment(C_Parser *parser) {
                            "Expected ';' after assignment",
                            parser->current_token, parser->filename);
     StringFree(&assignment->variable_name);
-    C_AstFreeExpression(assignment->expression);
+    C_AstFreeExpression(&assignment->expression);
     free(assignment);
     return NULL;
   }
@@ -345,134 +400,240 @@ C_InfixBindingPower C_GetInfixBindingPower(C_TokenType token_type) {
 
 C_AstExpression *C_ParserParseExpressionWithPrecedence(
     C_Parser *parser, double min_binding_power) {
-  LOG_DEBUG("Parsing expression (Pratt Parsing)\n");
+  LOG_DEBUG("Parsing expression with min_binding_power: %.1f\n", min_binding_power);
+  LOG_DEBUG("Current token: %s\n", C_TokenTypeToString(parser->current_token.type));
 
   C_AstExpression *lhs = malloc(sizeof(C_AstExpression));
+  if (!lhs) {
+    LOG_DEBUG("ERROR: Failed to allocate lhs expression\n");
+    return NULL;
+  }
+  LOG_DEBUG("Allocated lhs expression at %p\n", (void*)lhs);
 
   switch (parser->current_token.type) {
     case C_INTEGER_LITERAL: {
+      LOG_DEBUG("Parsing integer literal\n");
       lhs->type     = C_CONSTANT;
       lhs->constant = C_ParserParseConstant(parser);
+      LOG_DEBUG("Created integer constant at %p\n", (void*)lhs->constant);
       break;
     }
 
     case C_CHAR_LITERAL:
     case C_STRING_LITERAL: {
+      LOG_DEBUG("Parsing char/string literal (type: %d)\n", parser->current_token.type);
       lhs->type     = C_CONSTANT;
       lhs->constant = C_ParserParseConstant(parser);
+      LOG_DEBUG("Created string/char constant at %p\n", (void*)lhs->constant);
       break;
     }
 
     case C_ASTERISK: {
+      LOG_DEBUG("Parsing dereference operator (*)\n");
       C_ParserAdvance(parser);
+      LOG_DEBUG("Advanced past '*', parsing operand with precedence 5\n");
+      
       C_AstExpression *operand =
           C_ParserParseExpressionWithPrecedence(parser, 5);
       if (!operand) {
+        LOG_DEBUG("ERROR: Failed to parse dereference operand\n");
         free(lhs);
         return NULL;
       }
-      lhs->type          = C_UNARY_EXPRESSION;
-      lhs->unary         = malloc(sizeof(C_AstUnaryExpression));
-      lhs->unary->type   = C_UNARY_DEREF;
+      LOG_DEBUG("Parsed dereference operand at %p\n", (void*)operand);
+      
+      lhs->type = C_UNARY_EXPRESSION;
+      lhs->unary = malloc(sizeof(C_AstUnaryExpression));
+      if (!lhs->unary) {
+        LOG_DEBUG("ERROR: Failed to allocate unary expression\n");
+        C_AstFreeExpression(&operand);
+        free(lhs);
+        return NULL;
+      }
+      lhs->unary->type    = C_UNARY_DEREF;
       lhs->unary->operand = operand;
+      LOG_DEBUG("Created dereference expression at %p with operand %p\n", 
+                (void*)lhs, (void*)operand);
       break;
     }
 
     case C_AMPERSAND: {
+      LOG_DEBUG("Parsing address-of operator (&)\n");
       C_ParserAdvance(parser);
+      LOG_DEBUG("Advanced past '&', parsing operand with precedence 5\n");
+      
       C_AstExpression *operand =
           C_ParserParseExpressionWithPrecedence(parser, 5);
       if (!operand) {
+        LOG_DEBUG("ERROR: Failed to parse address-of operand\n");
         free(lhs);
         return NULL;
       }
-      lhs->type           = C_UNARY_EXPRESSION;
-      lhs->unary          = malloc(sizeof(C_AstUnaryExpression));
+      LOG_DEBUG("Parsed address-of operand at %p\n", (void*)operand);
+      
+      lhs->type = C_UNARY_EXPRESSION;
+      lhs->unary = malloc(sizeof(C_AstUnaryExpression));
+      if (!lhs->unary) {
+        LOG_DEBUG("ERROR: Failed to allocate unary expression\n");
+        C_AstFreeExpression(&operand);
+        free(lhs);
+        return NULL;
+      }
       lhs->unary->type    = C_UNARY_ADDRESS_OF;
       lhs->unary->operand = operand;
+      LOG_DEBUG("Created address-of expression at %p with operand %p\n", 
+                (void*)lhs, (void*)operand);
       break;
     }
 
     case C_IDENTIFIER: {
+      LOG_DEBUG("Parsing identifier: %s\n", 
+                StringGetCstr(&parser->current_token.string));
+      
       if (C_ParserPeek(parser).type == C_LPAREN) {
-        lhs->type          = C_FUNCTION_CALL;
+        LOG_DEBUG("Identifier followed by '(', parsing function call\n");
+        lhs->type = C_FUNCTION_CALL;
         lhs->function_call = C_ParserParseFunctionCall(parser);
         if (!lhs->function_call) {
+          LOG_DEBUG("ERROR: Failed to parse function call\n");
           free(lhs);
           return NULL;
         }
+        LOG_DEBUG("Created function call expression at %p with function call %p\n", 
+                  (void*)lhs, (void*)lhs->function_call);
         break;
       }
 
-      lhs->type     = C_VARIABLE;
+      LOG_DEBUG("Identifier is variable reference\n");
+      lhs->type = C_VARIABLE;
       lhs->variable = C_ParserParseVariable(parser);
+      if (!lhs->variable) {
+        LOG_DEBUG("ERROR: Failed to parse variable\n");
+        free(lhs);
+        return NULL;
+      }
+      LOG_DEBUG("Created variable expression at %p with variable %p\n", 
+                (void*)lhs, (void*)lhs->variable);
       break;
     }
 
-    default:
+    default: {
+      LOG_DEBUG("ERROR: Unexpected token: %s (type: %d)\n", 
+                StringGetCstr(&parser->current_token.string),
+                parser->current_token.type);
       C_ErrorReportWithToken(parser->error_context, "Expected expression",
                              parser->current_token, parser->filename);
       free(lhs);
       return NULL;
+    }
   }
+
+  LOG_DEBUG("Initial LHS parsed, entering infix loop. Current token: %s (type: %d)\n",
+            StringGetCstr(&parser->current_token.string),
+            parser->current_token.type);
 
   while (1) {
     C_TokenType operator_type = parser->current_token.type;
+    LOG_DEBUG("Loop iteration - operator_type: %d, token: %s\n", 
+              operator_type,
+              StringGetCstr(&parser->current_token.string));
 
     switch (operator_type) {
       case C_PLUS:
       case C_MINUS:
       case C_ASTERISK:
       case C_SLASH:
+        LOG_DEBUG("Found binary operator: %d\n", operator_type);
         break;
       case C_EOF:
+        LOG_DEBUG("Reached EOF, returning lhs at %p\n", (void*)lhs);
         return lhs;
       default:
+        LOG_DEBUG("No more operators (token: %d), returning lhs at %p\n", 
+                  operator_type, (void*)lhs);
         return lhs;
     }
 
     C_InfixBindingPower power = C_GetInfixBindingPower(operator_type);
+    LOG_DEBUG("Operator binding power - left: %.1f, right: %.1f\n", 
+              power.left, power.right);
 
     if (power.left < min_binding_power) {
+      LOG_DEBUG("Binding power left (%.1f) < min_binding_power (%.1f), breaking\n", 
+                power.left, min_binding_power);
       break;
     }
 
+    LOG_DEBUG("Advancing past operator\n");
     C_ParserAdvance(parser);
+    LOG_DEBUG("Parsing RHS with right binding power: %.1f\n", power.right);
 
     C_AstExpression *rhs =
         C_ParserParseExpressionWithPrecedence(parser, power.right);
     if (!rhs) {
-      C_AstFreeExpression(lhs);
+      LOG_DEBUG("ERROR: Failed to parse RHS expression\n");
+      LOG_DEBUG("Freeing LHS at %p\n", (void*)lhs);
+      C_AstFreeExpression(&lhs);
+      LOG_DEBUG("LHS set to NULL after free\n");
       return NULL;
     }
+    LOG_DEBUG("Parsed RHS at %p\n", (void*)rhs);
 
     C_AstExpression *binary_expr = malloc(sizeof(C_AstExpression));
-    binary_expr->type            = C_BINARY_EXPRESSION;
-    binary_expr->binary          = malloc(sizeof(C_AstBinaryExpression));
+    if (!binary_expr) {
+      LOG_DEBUG("ERROR: Failed to allocate binary expression\n");
+      C_AstFreeExpression(&lhs);
+      C_AstFreeExpression(&rhs);
+      return NULL;
+    }
+    LOG_DEBUG("Allocated binary expression at %p\n", (void*)binary_expr);
+
+    binary_expr->type = C_BINARY_EXPRESSION;
+    binary_expr->binary = malloc(sizeof(C_AstBinaryExpression));
+    if (!binary_expr->binary) {
+      LOG_DEBUG("ERROR: Failed to allocate binary expression struct\n");
+      free(binary_expr);
+      C_AstFreeExpression(&lhs);
+      C_AstFreeExpression(&rhs);
+      return NULL;
+    }
+    LOG_DEBUG("Allocated binary expression struct at %p\n", (void*)binary_expr->binary);
 
     switch (operator_type) {
       case C_PLUS:
         binary_expr->binary->symbol = '+';
+        LOG_DEBUG("Set binary operator: '+'\n");
         break;
       case C_MINUS:
         binary_expr->binary->symbol = '-';
+        LOG_DEBUG("Set binary operator: '-'\n");
         break;
       case C_ASTERISK:
         binary_expr->binary->symbol = '*';
+        LOG_DEBUG("Set binary operator: '*'\n");
         break;
       case C_SLASH:
         binary_expr->binary->symbol = '/';
+        LOG_DEBUG("Set binary operator: '/'\n");
         break;
       default:
         binary_expr->binary->symbol = '?';
+        LOG_DEBUG("Set binary operator: '?' (unknown)\n");
         break;
     }
 
     binary_expr->binary->lhs = lhs;
     binary_expr->binary->rhs = rhs;
-    lhs                      = binary_expr;
+    LOG_DEBUG("Binary expression - lhs: %p, rhs: %p, symbol: %c\n", 
+              (void*)binary_expr->binary->lhs,
+              (void*)binary_expr->binary->rhs,
+              binary_expr->binary->symbol);
+
+    lhs = binary_expr;
+    LOG_DEBUG("Set lhs to binary expression at %p\n", (void*)lhs);
   }
 
+  LOG_DEBUG("Returning final lhs at %p\n", (void*)lhs);
   return lhs;
 }
 
@@ -518,7 +679,7 @@ C_AstReturn *C_ParserParseReturn(C_Parser *parser) {
     C_ErrorReportWithToken(parser->error_context,
                            "Expected ';' after return statement",
                            parser->current_token, parser->filename);
-    C_AstFreeExpression(return_statement->value);
+    C_AstFreeExpression(&return_statement->value);
     free(return_statement);
     return NULL;
   }
@@ -682,45 +843,47 @@ void C_ParserSynchronizeToDeclaration(C_Parser *parser) {
   }
 }
 
-void C_ParserFree(C_Parser *parser) {
-  if (!parser) {
+void C_ParserFree(C_Parser **parser) {
+  if (!parser || !*parser) {
     return;
   }
 
-  C_LexerFreeTokens(parser->tokens);
-  free(parser);
+  C_LexerFreeTokens((*parser)->tokens);
+  free(*parser);
+  *parser = NULL;
 }
 
-void C_AstFreeExpression(C_AstExpression *expression) {
-  if (!expression) {
+void C_AstFreeExpression(C_AstExpression **expression) {
+  if (!expression || !*expression) {
     return;
   }
 
-  switch (expression->type) {
+  switch ((*expression)->type) {
     case C_CONSTANT:
-      free(expression->constant);
+      free((*expression)->constant);
       break;
     case C_FUNCTION_CALL:
-      StringFree(&expression->function_call->function_name);
-      free(expression->function_call);
+      StringFree(&(*expression)->function_call->function_name);
+      free((*expression)->function_call);
       break;
     case C_BINARY_EXPRESSION:
-      C_AstFreeExpression(expression->binary->lhs);
-      C_AstFreeExpression(expression->binary->rhs);
-      free(expression->binary);
+      C_AstFreeExpression(&(*expression)->binary->lhs);
+      C_AstFreeExpression(&(*expression)->binary->rhs);
+      free((*expression)->binary);
       break;
     case C_VARIABLE:
-      C_AstFreeVariable(expression->variable);
+      C_AstFreeVariable(&(*expression)->variable);
       break;
     case C_UNARY_EXPRESSION:
-      C_AstFreeExpression(expression->unary->operand);
-      free(expression->unary);
+      C_AstFreeExpression(&(*expression)->unary->operand);
+      free((*expression)->unary);
       break;
     default:
-      EXIT_WITH_ERROR("Got unknown expression to free: %d\n", expression->type);
+      EXIT_WITH_ERROR("Got unknown expression to free: %d\n", (*expression)->type);
   }
 
-  free(expression);
+  free(*expression);
+  *expression = NULL;
 }
 
 void C_AstFreeBlock(C_AstBlock *block) {
@@ -741,7 +904,7 @@ void C_AstFreeReturn(C_AstReturn *ret) {
     return;
   }
 
-  C_AstFreeExpression(ret->value);
+  C_AstFreeExpression(&ret->value);
   free(ret);
 }
 
@@ -752,7 +915,7 @@ void C_AstFreeVariableAssignment(C_AstVariableAssignment *assignment) {
 
   StringFree(&assignment->variable_name);
   if (assignment->expression) {
-    C_AstFreeExpression(assignment->expression);
+    C_AstFreeExpression(&assignment->expression);
   }
   free(assignment);
 }
@@ -767,8 +930,8 @@ void C_AstFreeFunctionDeclaration(C_AstFunctionDeclaration *declaration) {
   free(declaration);
 }
 
-void C_AstFreeExpressionStatement(C_AstExpression *expression) {
-  if (!expression) {
+void C_AstFreeExpressionStatement(C_AstExpression **expression) {
+  if (!expression || !*expression) {
     return;
   }
 
@@ -783,18 +946,24 @@ void C_AstFreeStatement(C_AstStatement *statement) {
   switch (statement->type) {
     case C_STATEMENT_BLOCK:
       C_AstFreeBlock(statement->block);
+      statement->block = NULL;
       break;
     case C_STATEMENT_RETURN:
       C_AstFreeReturn(statement->return_statement);
+      statement->return_statement = NULL;
       break;
     case C_STATEMENT_FUNCTION_DECLARATION:
       C_AstFreeFunctionDeclaration(statement->function_declaration);
+      statement->function_declaration = NULL;
       break;
     case C_STATEMENT_EXPRESSION:
-      C_AstFreeExpressionStatement(statement->expression);
+      C_AstFreeExpressionStatement(&statement->expression);
       break;
     case C_STATEMENT_ASSIGNMENT:
       C_AstFreeVariableAssignment(statement->assignment);
+      break;
+    case C_STATEMENT_IF:
+      C_AstFreeIf(&statement->if_statement);
       break;
     case C_STATEMENT_NOOP:
       break;
@@ -805,27 +974,41 @@ void C_AstFreeStatement(C_AstStatement *statement) {
   free(statement);
 }
 
-void C_ParserFreeProgram(C_AstProgram *program) {
-  if (!program) {
+void C_ParserFreeProgram(C_AstProgram **program) {
+  if (!program || !*program) {
     return;
   }
 
-  if (program->function_declarations) {
-    for (int i = 0; i < arrlen(program->function_declarations); i++) {
-      C_AstFreeFunctionDeclaration(program->function_declarations[i]);
+  if ((*program)->function_declarations) {
+    for (int i = 0; i < arrlen((*program)->function_declarations); i++) {
+      C_AstFreeFunctionDeclaration((*program)->function_declarations[i]);
     }
 
-    arrfree(program->function_declarations);
+    arrfree((*program)->function_declarations);
   }
 
-  free(program);
+  free(*program);
+  *program = NULL;
 }
 
-void C_AstFreeVariable(C_AstVariable *variable) {
-  if (!variable) {
+void C_AstFreeVariable(C_AstVariable **variable) {
+  if (!variable || !*variable) {
     return;
   }
 
-  StringFree(&variable->name);
-  free(variable);
+  StringFree(&(*variable)->name);
+  free(*variable);
+  *variable = NULL;
+}
+
+void C_AstFreeIf(C_AstIf **if_statement) {
+  if (!if_statement || !*if_statement) {
+    return;
+  }
+
+  C_AstFreeExpression(&(*if_statement)->condition);
+  C_AstFreeStatement((*if_statement)->block);
+  (*if_statement)->block = NULL;
+  free(*if_statement);
+  *if_statement = NULL;
 }

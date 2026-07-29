@@ -91,11 +91,11 @@ C_Lexer *C_LexerCreate(const char *source) {
 
 static String C_SourceSubstring(const C_Lexer *lexer, size_t start_position,
                                 size_t end_position) {
-  String source_view = {.data = (char *)lexer->source,
-                        .length = lexer->source_length,
+  String source_view = {.data     = (char *)lexer->source,
+                        .length   = lexer->source_length,
                         .capacity = lexer->source_length};
-  String result = StringSubstring(&source_view, start_position,
-                                  end_position - start_position);
+  String result      = StringSubstring(&source_view, start_position,
+                                       end_position - start_position);
   LOG_DEBUG("Substring: \"%s\", Length: %zu\n", StringGetCstr(&result),
             result.length);
   return result;
@@ -164,7 +164,7 @@ C_Token C_LexerLexNumber(C_Lexer *lexer) {
   }
 
   size_t end_position = lexer->current_position;
-  String number = C_SourceSubstring(lexer, start_position, end_position);
+  String number       = C_SourceSubstring(lexer, start_position, end_position);
 
   return C_LexerCreateToken(lexer, C_INTEGER_LITERAL, number, '\0');
 }
@@ -181,7 +181,7 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
   }
 
   size_t end_position = lexer->current_position;
-  String word = C_SourceSubstring(lexer, start_position, end_position);
+  String word         = C_SourceSubstring(lexer, start_position, end_position);
 
   C_TokenType type      = C_IDENTIFIER;
   const char *word_cstr = StringGetCstr(&word);
@@ -193,6 +193,8 @@ C_Token C_LexerLexIdentifierOrKeyword(C_Lexer *lexer) {
     type = C_VOID;
   } else if (strcmp("return", word_cstr) == 0) {
     type = C_RETURN;
+  } else if (strcmp("if", word_cstr) == 0) {
+    type = C_IF;
   }
 
   return C_LexerCreateToken(lexer, type, word, '\0');
@@ -341,6 +343,8 @@ const char *C_TokenTypeToString(C_TokenType type) {
       return "C_CHAR";
     case C_RETURN:
       return "C_RETURN";
+    case C_IF:
+      return "C_IF";
     case C_PLUS:
       return "C_PLUS";
     case C_MINUS:

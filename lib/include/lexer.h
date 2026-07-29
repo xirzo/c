@@ -16,6 +16,7 @@ typedef enum {
   C_VOID,
 
   C_RETURN,
+  C_IF,
 
   C_PLUS,
   C_MINUS,

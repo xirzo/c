@@ -15,6 +15,7 @@
 
 static String *cg_string_data = NULL;
 static int     cg_string_count = 0;
+static int     cg_if_label_counter = 0;
 
 static void C_CodeGenResetStringState(void) {
   if (cg_string_data) {
@@ -75,6 +76,7 @@ static void C_CodeGenAddStringData(const char *label, const String *str) {
 
 String *C_CodeGenEmit(C_AstProgram *program) {
   C_CodeGenResetStringState();
+  cg_if_label_counter = 0;
   String *lines = NULL;
 
   arrput(lines, StringCreate("global _start"));
@@ -341,6 +343,11 @@ String *C_CodeGenEmitReturn(C_AstReturn *ret, int *current_offset) {
     arrfree(expression_lines);
   }
 
+  arrput(lines, StringCreate(""));
+  arrput(lines, StringCreate("    mov rsp, rbp"));
+  arrput(lines, StringCreate("    pop rbp"));
+  arrput(lines, StringCreate("    ret"));
+
   return lines;
 }
 
@@ -408,6 +415,31 @@ String *C_CodeGenEmitStatement(C_AstStatement *statement, int *current_offset) {
     }
     case C_STATEMENT_NOOP:
       break;
+    case C_STATEMENT_IF: {
+      int label_id = cg_if_label_counter++;
+      String *condition_lines =
+          C_CodeGenEmitExpression(statement->if_statement->condition, current_offset);
+      ADD_TO_LINES(condition_lines);
+      arrfree(condition_lines);
+
+      String test_line = StringCreateEmpty(0);
+      StringPrintf(&test_line, "    test rax, rax");
+      arrput(lines, test_line);
+
+      String jump_line = StringCreateEmpty(0);
+      StringPrintf(&jump_line, "    je .L_end_if_%d", label_id);
+      arrput(lines, jump_line);
+
+      String *body_lines =
+          C_CodeGenEmitStatement(statement->if_statement->block, current_offset);
+      ADD_TO_LINES(body_lines);
+      arrfree(body_lines);
+
+      String label_line = StringCreateEmpty(0);
+      StringPrintf(&label_line, ".L_end_if_%d:", label_id);
+      arrput(lines, label_line);
+      break;
+    }
     default:
       arrfree(lines);
       EXIT_WITH_ERROR("Got unsupported type for statement emit: %d\n",

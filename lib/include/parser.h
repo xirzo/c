@@ -72,6 +72,7 @@ typedef enum {
   C_STATEMENT_FUNCTION_DECLARATION,
   C_STATEMENT_EXPRESSION,
   C_STATEMENT_ASSIGNMENT,
+  C_STATEMENT_IF,
   C_STATEMENT_NOOP,
 } C_AstStatementType;
 
@@ -94,6 +95,11 @@ typedef struct {
   int              pointer_depth;
 } C_AstVariableAssignment;
 
+typedef struct {
+  C_AstExpression *condition;
+  C_AstStatement  *block;
+} C_AstIf;
+
 typedef struct C_AstStatement {
   C_AstStatementType type;
 
@@ -103,6 +109,7 @@ typedef struct C_AstStatement {
     C_AstFunctionDeclaration *function_declaration;
     C_AstExpression          *expression;
     C_AstVariableAssignment  *assignment;
+    C_AstIf                  *if_statement;
   };
 } C_AstStatement;
 
@@ -127,8 +134,8 @@ typedef struct {
 C_Parser     *C_ParserCreate(C_Token *tokens, C_ErrorContext *error_context,
                              const char *filename);
 C_AstProgram *C_ParserParse(C_Parser *parser);
-void          C_ParserFree(C_Parser *parser);
-void          C_ParserFreeProgram(C_AstProgram *program);
+void          C_ParserFree(C_Parser **parser);
+void          C_ParserFreeProgram(C_AstProgram **program);
 
 void    C_ParserAdvance(C_Parser *parser);
 C_Token C_ParserPeek(C_Parser *parser);
@@ -145,14 +152,16 @@ C_AstReturn              *C_ParserParseReturn(C_Parser *parser);
 C_AstBlock               *C_ParserParseBlock(C_Parser *parser);
 C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser);
 C_AstVariable            *C_ParserParseVariable(C_Parser *parser);
+C_AstIf                  *C_ParserParseIf(C_Parser *parser);
 
-void C_AstFreeExpression(C_AstExpression *expression);
+void C_AstFreeExpression(C_AstExpression **expression);
 void C_AstFreeStatement(C_AstStatement *statement);
 void C_AstFreeBlock(C_AstBlock *block);
 void C_AstFreeReturn(C_AstReturn *ret);
 void C_AstFreeVariableAssignment(C_AstVariableAssignment *assignment);
 void C_AstFreeFunctionDeclaration(C_AstFunctionDeclaration *declaration);
-void C_AstFreeVariable(C_AstVariable *variable);
+void C_AstFreeVariable(C_AstVariable **variable);
+void C_AstFreeIf(C_AstIf **if_statement);
 
 void C_ParserSynchronizeToDeclaration(C_Parser *parser);
 void C_ParserSynchronize(C_Parser *parser);
