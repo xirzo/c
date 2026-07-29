@@ -155,22 +155,28 @@ static int compile_file(const char *filepath, bool emit_entry) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <source_file>...\n", argv[0]);
+        fprintf(stderr, "Usage: %s [-static] <source_file>...\n", argv[0]);
         return EXIT_FAILURE;
     }
 
+    bool link_static = false;
     const char *output_name = NULL;
     size_t      output_name_len = 0;
     int         first = 1;
     int         status = 0;
 
     for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-static") == 0) {
+            link_static = true;
+            continue;
+        }
         const char *ext = strrchr(argv[i], '.');
         if (!ext || strcmp(ext, ".c") != 0) {
             fprintf(stderr, "Skipping non-.c file: %s\n", argv[i]);
             continue;
         }
 
+        bool emit_entry = first;
         if (first) {
             const char *slash = strrchr(argv[i], '/');
             const char *name = slash ? slash + 1 : argv[i];
@@ -179,7 +185,7 @@ int main(int argc, char *argv[]) {
             first = 0;
         }
 
-        if (compile_file(argv[i], i == 1) != 0) {
+        if (compile_file(argv[i], emit_entry) != 0) {
             status = 1;
         }
     }
@@ -198,6 +204,11 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < arrlen(object_filenames); i++) {
         StringAppendCstr(&ld_command, " ");
         StringAppend(&ld_command, &object_filenames[i]);
+    }
+    if (link_static) {
+        StringAppendCstr(&ld_command, " -static -lc");
+    } else {
+        StringAppendCstr(&ld_command, " -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2");
     }
     StringAppendCstr(&ld_command, " -o ");
     StringAppend(&ld_command, &output_filename);
