@@ -580,8 +580,8 @@ String *C_CodeGenEmitFunctionDeclaration(
   String *lines = NULL;
 
   String function_label = StringCreateEmpty(0);
-  StringPrintf(&function_label, "%s:",
-               StringGetCstr(&function_declaration->function_name));
+  StringPrintf(&function_label,
+               "%s:", StringGetCstr(&function_declaration->function_name));
   arrput(lines, function_label);
 
   arrput(lines, StringCreate("    push rbp"));
@@ -593,11 +593,24 @@ String *C_CodeGenEmitFunctionDeclaration(
   ADD_TO_LINES(body_lines);
   arrfree(body_lines);
 
-  arrput(lines, StringCreate(""));
-  arrput(lines, StringCreate("    mov rsp, rbp"));
-  arrput(lines, StringCreate("    pop rbp"));
-  arrput(lines, StringCreate("    ret"));
-  arrput(lines, StringCreate(""));
+  bool has_return = false;
+  for (int i = 0; i < arrlen(function_declaration->body->statements); i++) {
+    C_AstStatement *statement = function_declaration->body->statements[i];
+
+    if (statement->type == C_STATEMENT_RETURN) {
+      has_return = true;
+      break;
+
+    }
+  }
+
+  if (!has_return) {
+    arrput(lines, StringCreate(""));
+    arrput(lines, StringCreate("    mov rsp, rbp"));
+    arrput(lines, StringCreate("    pop rbp"));
+    arrput(lines, StringCreate("    ret"));
+    arrput(lines, StringCreate(""));
+  }
 
   return lines;
 }
