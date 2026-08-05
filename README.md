@@ -1,4 +1,9 @@
 
+## Requirements
+
+- [Meson](https://mesonbuild.com/)
+- [C99 Compiler](https://en.wikipedia.org/wiki/C99)
+
 ## Build
 
 ```sh
