@@ -3,10 +3,10 @@ project(
   'c',
   meson_version : '>= 1.3.0',
   version : '0.1',
-  default_options : ['warning_level=3', 'c_std=c99', 'b_sanitize=address,undefined'],
+  default_options : ['warning_level=3', 'c_std=c11', 'b_sanitize=address,undefined'],
 )
 
-my_c_args = ['-DUNITY_OUTPUT_COLOR']
+my_c_args = ['-DUNITY_OUTPUT_COLOR', '-Wpedantic', '-Wall', '-Wextra']
 build_type = get_option('buildtype')
 
 if build_type == 'debug'

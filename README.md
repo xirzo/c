@@ -2,7 +2,7 @@
 ## Requirements
 
 - [Meson](https://mesonbuild.com/)
-- [C99 Compiler](https://en.wikipedia.org/wiki/C99)
+- [C11 Compiler](https://en.wikipedia.org/wiki/C11_(C_standard_revision))
 
 ## Build
 
