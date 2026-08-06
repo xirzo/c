@@ -769,6 +769,24 @@ C_AstFunctionDeclaration *C_ParserParseFunctionDeclaration(C_Parser *parser) {
 
   C_ParserAdvance(parser);
 
+  // TODO: parse args, for now get void
+  if (parser->current_token.type == C_VOID) {
+    LOG_DEBUG("Got void params declaration\n");
+    C_Token peeked = C_ParserPeek(parser);
+    if (peeked.type != C_RPAREN) {
+      C_ErrorReportWithToken(
+          parser->error_context,
+          "Function declaration with void parameter must end with ')'", peeked,
+          parser->filename);
+      StringFree(&function_declaration->function_name);
+      free(function_declaration);
+      return NULL;
+    }
+
+    C_ParserAdvance(parser);
+    LOG_DEBUG("Skipped the void param\n");
+  }
+
   if (parser->current_token.type != C_RPAREN) {
     C_ErrorReportWithToken(parser->error_context,
                            "Expected ')' after function parameters",

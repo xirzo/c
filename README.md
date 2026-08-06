@@ -25,3 +25,13 @@ ninja -C build test
 ```sh
 ./build/c <source_file>
 ```
+
+## Known Issues
+
+When ran, returns 184
+
+```c
+int main(void) {
+    return 696;
+}
+```
